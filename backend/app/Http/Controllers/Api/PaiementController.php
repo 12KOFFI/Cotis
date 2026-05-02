@@ -1,0 +1,194 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Groupe;
+use App\Models\Membre;
+use App\Models\Paiement;
+use App\Models\PaiementLog;
+use App\Models\Periode;
+use App\Models\AdhesionFrais;
+use App\Models\Caisse;
+use App\Models\CaisseLedger;
+use App\Models\CreditMembre;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class PaiementController extends Controller
+{
+    public function index(Request $request, Groupe $groupe)
+    {
+        $this->authorizeGroupe($request, $groupe, true);
+        $paiements = $groupe->paiements()->with('membre', 'periode')->latest('date_paiement')->limit(200)->get();
+        return response()->json(['paiements' => $paiements]);
+    }
+
+    public function mesPaiements(Request $request, Groupe $groupe)
+    {
+        $u = $request->user();
+        $membre = $groupe->membres()->where('user_id', $u->id)->first();
+        abort_unless($membre, 403);
+        $paiements = Paiement::where('membre_id', $membre->id)->with('periode')->latest('date_paiement')->get();
+        return response()->json(['paiements' => $paiements, 'membre' => $membre->load('adhesion', 'credits')]);
+    }
+
+    public function store(Request $request, Groupe $groupe)
+    {
+        $this->authorizeGroupe($request, $groupe);
+        $data = $request->validate([
+            'membre_id' => 'required|exists:membres,id',
+            'type' => 'required|in:cotisation,adhesion,autre',
+            'montant' => 'required|integer|min:1',
+            'mode' => 'required|in:cash,wave,virement,autre',
+            'date_paiement' => 'required|date',
+            'note' => 'nullable|string',
+        ]);
+        $membre = Membre::findOrFail($data['membre_id']);
+        abort_unless($membre->groupe_id === $groupe->id, 422);
+
+        return DB::transaction(function () use ($groupe, $membre, $data, $request) {
+            // Blocage : non-adhérent ne peut pas payer de cotisations si adhésion non payée
+            if ($data['type'] === 'cotisation' && $groupe->adhesion_active) {
+                $ad = $membre->adhesion;
+                abort_if($ad && $ad->statut !== 'paye', 422, "Droit d'adhésion non réglé. Veuillez d'abord régler l'adhésion.");
+            }
+
+            $paiements = [];
+            $reste = $data['montant'];
+
+            if ($data['type'] === 'adhesion') {
+                $ad = AdhesionFrais::firstOrCreate(
+                    ['groupe_id' => $groupe->id, 'membre_id' => $membre->id],
+                    ['montant_du' => $groupe->adhesion_montant]
+                );
+                $ad->montant_paye += $reste;
+                if ($ad->montant_paye >= $ad->montant_du) {
+                    $ad->statut = 'paye';
+                    $ad->paye_at = now();
+                    if ($membre->statut === 'actif_non_verifie') {
+                        $membre->statut = 'actif';
+                        $membre->save();
+                    }
+                }
+                $ad->save();
+                $paiements[] = $this->createPaiement($groupe, $membre, null, $data, $reste, $request->user()->id);
+                $reste = 0;
+            } else {
+                // Cotisation : imputation par ancienneté sur périodes impayées
+                $periodes = $groupe->periodes()->orderBy('date_debut')->get();
+                foreach ($periodes as $p) {
+                    if ($reste <= 0) break;
+                    $du = $membre->montant_perso ?? $groupe->montant_standard;
+                    $deja = Paiement::where('membre_id', $membre->id)
+                        ->where('periode_id', $p->id)
+                        ->where('type', 'cotisation')
+                        ->where('statut', 'reussi')->sum('montant');
+                    $manquant = max(0, $du - $deja);
+                    if ($manquant <= 0) continue;
+                    $apply = min($manquant, $reste);
+                    $paiements[] = $this->createPaiement($groupe, $membre, $p, $data, $apply, $request->user()->id);
+                    $reste -= $apply;
+                }
+                // Excédent -> crédit reporté
+                if ($reste > 0) {
+                    CreditMembre::create([
+                        'groupe_id' => $groupe->id,
+                        'membre_id' => $membre->id,
+                        'montant' => $reste,
+                        'periode_source_id' => optional($periodes->last())->id,
+                    ]);
+                    // On enregistre quand même en autre
+                    $paiements[] = $this->createPaiement($groupe, $membre, null, array_merge($data, ['type' => 'autre']), $reste, $request->user()->id);
+                    $reste = 0;
+                }
+                if ($membre->statut === 'actif_non_verifie') {
+                    $membre->statut = 'actif';
+                    $membre->save();
+                }
+            }
+
+            return response()->json(['paiements' => $paiements], 201);
+        });
+    }
+
+    protected function createPaiement(Groupe $groupe, Membre $membre, ?Periode $periode, array $data, int $montant, int $userId): Paiement
+    {
+        $p = Paiement::create([
+            'groupe_id' => $groupe->id,
+            'membre_id' => $membre->id,
+            'periode_id' => $periode?->id,
+            'type' => $data['type'],
+            'montant' => $montant,
+            'mode' => $data['mode'],
+            'statut' => 'reussi',
+            'date_paiement' => $data['date_paiement'],
+            'note' => $data['note'] ?? null,
+            'enregistre_par' => $userId,
+        ]);
+        // Ledger entry + update caisse
+        $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
+        CaisseLedger::create([
+            'caisse_id' => $caisse->id,
+            'groupe_id' => $groupe->id,
+            'type' => 'entree',
+            'montant' => $montant,
+            'motif' => ucfirst($data['type']) . ' - ' . ($membre->full_name),
+            'date' => $data['date_paiement'],
+            'paiement_id' => $p->id,
+            'auteur_id' => $userId,
+        ]);
+        $caisse->solde += $montant;
+        $caisse->save();
+        return $p;
+    }
+
+    public function update(Request $request, Groupe $groupe, Paiement $paiement)
+    {
+        $this->authorizeGroupe($request, $groupe);
+        abort_unless($paiement->groupe_id === $groupe->id, 404);
+        $data = $request->validate([
+            'montant' => 'sometimes|integer|min:0',
+            'mode' => 'sometimes|in:cash,wave,virement,autre',
+            'note' => 'nullable|string',
+            'date_paiement' => 'sometimes|date',
+        ]);
+        $avant = $paiement->toArray();
+        $delta = isset($data['montant']) ? $data['montant'] - $paiement->montant : 0;
+        $paiement->update(array_merge($data, ['modifie' => true]));
+        PaiementLog::create([
+            'paiement_id' => $paiement->id,
+            'auteur_id' => $request->user()->id,
+            'avant' => $avant,
+            'apres' => $paiement->toArray(),
+            'action' => 'update',
+        ]);
+        if ($delta !== 0) {
+            $caisse = $groupe->caisse;
+            if ($caisse) {
+                CaisseLedger::create([
+                    'caisse_id' => $caisse->id,
+                    'groupe_id' => $groupe->id,
+                    'type' => $delta > 0 ? 'entree' : 'sortie',
+                    'montant' => abs($delta),
+                    'motif' => 'Ajustement paiement #' . $paiement->id,
+                    'date' => now()->toDateString(),
+                    'paiement_id' => $paiement->id,
+                    'auteur_id' => $request->user()->id,
+                ]);
+                $caisse->solde += $delta;
+                $caisse->save();
+            }
+        }
+        return response()->json(['paiement' => $paiement]);
+    }
+
+    protected function authorizeGroupe(Request $request, Groupe $groupe, bool $allowMember = false): void
+    {
+        $u = $request->user();
+        if ($u->role === 'super_admin') return;
+        if ($groupe->gestionnaire_id === $u->id) return;
+        if ($allowMember && $groupe->membres()->where('user_id', $u->id)->exists()) return;
+        abort(403);
+    }
+}

@@ -1,0 +1,474 @@
+================================================================================
+                          COTISPRO — CAHIER DES CHARGES MVP
+                     Version MVP Simplifiée — Validation Produit
+                         Avril 2026 (révisé) — Document complet
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ACTEURS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GESTIONNAIRE
+  - Crée et configure le groupe
+  - Invite les membres par SMS ou WhatsApp
+  - Enregistre les paiements cash manuellement
+  - Suit la caisse unique en temps réel
+  - Envoie des rappels ciblés
+  - Exporte les rapports (PDF / CSV)
+
+MEMBRE
+  - Reçoit une invitation par SMS ou WhatsApp
+  - Accède à son espace personnel (web)
+  - Paie sa cotisation via Wave ou cash
+  - Consulte son historique de paiements
+
+SYSTÈME (automatique)
+  - Envoie les SMS d'invitation et de rappel
+  - Calcule les statuts (À jour / Partiel / En retard)
+  - Traite les webhooks Wave
+  - Met à jour la caisse après chaque paiement
+
+
+  Super Admin
+  -Dashboard Global 
+  -Gestion des Gestionnaires
+  -Gestion des Groupes 
+  -Gestion des Plans & Abonnements
+  -Monitoring Financier 
+  -Gestion des SMS 
+  -Monitoring Wave & Webhooks 
+  -Gestion des Utilisateurs (membres) 
+  -Sécurité & Audit 
+  -Configuration Plateforme
+  -Rapports & Exports 
+  -Support & Litiges
+  -Voir les signalements envoyés par les gestionnaires
+  - Accès total à toutes les fonctionnalités
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. CONFIGURATION DU GROUPE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le gestionnaire configure son groupe en 2 étapes.
+
+ÉTAPE 1 — Informations de base
+  - Nom du groupe (obligatoire)
+  - Type : Tontine / Coopérative / Association / Autre
+  - Description courte (optionnel)
+  - Logo (optionnel — upload image)
+
+ÉTAPE 2 — Règles financières
+
+  A. Droit d'adhésion unique
+     - Activer : Oui / Non
+     - Montant fixe (ex : 5 000 FCFA)
+     - Pas d'échelonnement dans ce MVP — paiement intégral uniquement
+
+  B. Cotisation récurrente
+     - Fréquence : Hebdomadaire / Mensuelle / Trimestrielle / Annuelle
+       → Si "Autre" : ouvrir un calendrier pour que le gestionnaire choisisse lui-même
+     - Montant standard (ex : 2 000 FCFA)
+     - Montant personnalisable par membre : Oui / Non (toggle, désactivé par défaut)
+     - Date de début du 1er cycle
+     - Pas de paiement échelonné dans ce MVP
+
+  C. Caisse unique
+     - Le groupe dispose d'UNE seule caisse
+     - Tous les paiements entrants alimentent cette caisse
+     - Le gestionnaire peut enregistrer des décaissements avec un motif
+
+ÉTAPE 3 — Mobile Money Wave
+  - Le gestionnaire saisit son numéro Wave (CI ou SN)
+  - Ce numéro est affiché aux membres pour les paiements
+  - Les webhooks Wave confirment automatiquement les transactions
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. GESTION DES MEMBRES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1 — Ajout par invitation SMS / WhatsApp / Mail (canal principal)
+  - Le gestionnaire saisit le numéro de téléphone du membre
+  - Le système vérifie si un compte existe → lié ou créé à la volée
+  - SMS / lien envoyé
+  - Le membre clique → lien magique (auto-login sans OTP) → confirmation en 1 clic
+  - Droit d'adhésion affiché si activé → paiement ou mise en attente
+  [NOTE] Magic link : l'OTP classique est trop lourd pour l'adoption terrain.
+          Le premier accès se fait par lien auto-login. L'OTP reste en fallback.
+
+3.2 — Ajout direct par le gestionnaire (membres sans smartphone)
+  - Le gestionnaire saisit : Nom, Prénom, Téléphone, Note
+  - Membre ajouté en statut "Actif non vérifié"
+  - SMS de bienvenue envoyé si numéro valide
+  - Paiements enregistrés manuellement par le gestionnaire
+  [NOTE] Statut initial "Actif non vérifié" : évite les faux membres actifs.
+          Le statut passe à "Actif" dès le premier paiement ou la confirmation.
+
+3.3 — Statuts d'un membre
+
+  STATUT       | DESCRIPTION                                       | INDICATEUR
+  ─────────────┼───────────────────────────────────────────────────┼───────────
+  À jour       | Montant de la période en cours entièrement versé  | ✅ Vert
+  Partiel      | Partie versée, solde restant > 0 (période en cours)| ⚠️ Orange
+  En retard    | Échéance dépassée, montant non réglé (période)    | ❌ Rouge
+
+  [NOTE] Le statut est basé UNIQUEMENT sur la période en cours.
+          Les retards des périodes précédentes apparaissent dans l'historique.
+
+3.4 — Rôles (attribués par le gestionnaire)
+  - Gestionnaire : accès complet (admin du groupe)
+  - Trésorier : rôle attribuable à un membre par le gestionnaire
+  - Membre standard
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. MODULE PAIEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1 — Règles d'imputation des paiements
+
+  Imputation par ancienneté
+    → Tout paiement est imputé à la dette la plus ancienne en priorité.
+
+  Gestion du surpaiement
+    → Si montant payé > montant dû, l'excédent génère un crédit sur la prochaine période.
+    Exemple : dû = 2 000 FCFA, payé = 3 000 FCFA → À jour + crédit 1 000 FCFA
+
+  Paiement en retard multi-périodes
+    → Le système identifie toutes les périodes impayées (ordre chronologique)
+    → Le paiement solde les périodes dans l'ordre
+    Exemple : 2 mois impayés (2 000 + 2 000), paiement de 3 000
+              → mois 1 soldé (À jour), mois 2 partiel (1 000 restant)
+
+4.2 — Paiement Wave (In-App)
+  - Clic "Payer ma cotisation"
+  - Affichage : montant dû + reste à payer
+  - Sélection automatique : Wave
+  - Confirmation USSD ou push sur le téléphone du membre
+  - Argent versé directement sur le numéro Wave du gestionnaire
+  - Webhook reçu → vérification idempotente (transaction_id unique) → confirmation auto
+  - Caisse mise à jour via journal de mouvements (ledger)
+  - SMS de confirmation envoyé au membre
+  [NOTE] Idempotence webhook Wave : chaque transaction_id est vérifié avant traitement.
+          Un doublon est ignoré silencieusement. Évite le double crédit.
+
+  Statuts de paiement :
+  STATUT      | DESCRIPTION
+  ────────────┼──────────────────────────────────────────────
+  En attente  | Paiement initié, en cours de traitement
+  Réussi      | Webhook Wave confirmé
+  Échoué      | Timeout ou solde insuffisant
+  Annulé      | Cas exceptionnel, action manuelle
+
+  [NOTE] Si Wave échoue, le gestionnaire dispose d'un bouton
+          "Marquer comme payé manuellement" pour régulariser.
+
+4.3 — Paiement Manuel (Cash)
+  Formulaire gestionnaire "Enregistrer un paiement" :
+  - Membre concerné
+  - Type : Cotisation / Droit d'adhésion / Autre
+  - Montant
+  - Date du paiement
+  - Mode : Cash / Virement direct / Autre
+  - Note interne (optionnel)
+  Résultat :
+  - Caisse mise à jour via journal de mouvements
+  - SMS de confirmation envoyé au membre
+  - Enregistrement immédiat dans l'historique
+  [NOTE] Traçabilité : tout paiement cash modifié est marqué "modifié"
+          avec historique avant/après, identité gestionnaire et horodatage.
+
+4.4 — Droit d'Adhésion
+  - Paiement Wave ou cash uniquement
+  - Pas d'échelonnement dans ce MVP — paiement intégral
+  - Suivi dans un onglet dédié
+  - Relance SMS automatique si non réglé après 7 jours
+
+  Statuts et accès :
+  - Non payé (adhérent en attente) :
+    ✅ Peut accéder à son espace personnel
+    ✅ Peut consulter ses informations
+    ❌ Ne peut PAS payer des cotisations
+    ❌ Ne peut PAS être marquée "à jour"
+    ❌ Pas de droits réservés aux membres
+  - Réglé (membre) : accès complet
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. CAISSE UNIQUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - UNE seule caisse par groupe (V2 → multi-caisses)
+  - Tous les paiements entrants (Wave + cash) alimentent la caisse via ledger
+  - Le solde est calculé UNIQUEMENT depuis le journal de mouvements (ledger)
+    → Jamais recalculé à la volée depuis les paiements bruts
+    → Chaque entrée/sortie génère une ligne immuable
+
+  Vue Tableau de Bord Caisse :
+  CAISSE            | TOTAL ATTENDU (période) | SOLDE CUMULÉ
+  ──────────────────┼─────────────────────────┼──────────────
+  Caisse principale | (ex : 60 000 FCFA)      | (ex : 211 000 FCFA)
+
+  Décaissement (gestionnaire seul) :
+  - Sélectionner la caisse unique
+  - Saisir : montant, motif (obligatoire), bénéficiaire, date
+  - Valider → ligne de journal générée → solde recalculé
+  - Enregistrement dans l'historique des mouvements
+  - SMS aux membres : activé par défaut, désactivable avant validation
+
+  🗓️ V2 — Gestion multi-caisses avec répartition automatique.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. SMS MINIMAUX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  SMS courts, directs, orientés action terrain.
+
+  6.1 — Invitation membre
+    "[Prénom], [Gestionnaire] t'invite dans [Groupe].
+     Cotis : [montant]/[fréquence]. Rejoins : [lien]"
+
+  6.2 — Rappel de cotisation
+
+    J-3 avant échéance :
+    "[Prénom], cotisation [montant] dans 3 jours.
+     Paye : [lien] ou Wave : [numéro]"
+
+    Jour J (échéance) :
+    "[Prénom], cotisation [montant] due auj.
+     Reste : [solde]. Wave : [numéro]"
+
+  6.3 — Confirmation de paiement
+    "[Prénom], paiement [montant] reçu pour [Groupe]. Merci !"
+
+  6.4 — Rappel manuel (gestionnaire)
+    - "Relancer les retardataires" → SMS groupé à tous En retard / Partiel
+    - Prévisualisation du message avant envoi
+    - Quota mensuel de SMS inclus dans le plan
+
+  🗓️ V2 — SMS de suspension automatique (J-30, J-7).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. TABLEAU DE BORD GESTIONNAIRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Section Collecte (période en cours)
+    - Total attendu
+    - Total reçu
+    - Taux de collecte : (reçu / attendu) × 100
+    - Membres À jour / Partiels / En retard
+    - Dernières transactions
+
+  Section Caisse
+    - Solde actuel de la caisse (depuis le ledger)
+    - Derniers décaissements
+
+  Section Membres
+    - Nombre total de membres actifs
+    - Invitations en attente
+
+  Actions Rapides
+    - Enregistrer un paiement cash
+    - Envoyer un rappel groupé
+    - Inviter un nouveau membre
+
+  Export
+    - Export des statistiques en format PDF ou CSV
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. ESPACE MEMBRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Page Principale
+    - Statut actuel : À jour ✅ / Partiel ⚠️ / En retard ❌
+    - Droit d'adhésion : Réglé ✅ / Non réglé ❌
+    - Montant dû — période en cours
+    - Reste à payer
+    - Bouton "Payer maintenant" — Wave uniquement
+
+  Historique
+    - Toutes les transactions (cotisations + adhésion)
+    - Détail : date, montant, mode, statut
+    - Crédit reporté visible (surpaiements appliqués aux périodes suivantes)
+    - Filtres : par période, par type
+
+  Carte Virtuelle (membre et gestionnaire)
+    - Carte virtuelle dans le profil avec QR code
+    - Téléchargeable en image/PDF
+    - QR code = lien vers l'historique de paiements des cotisations
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. NAVIGATION — MENU PRINCIPAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  📍 MA COMMUNAUTÉ
+    - Présentation (nom, description, logo)
+    - Liste des membres + statuts
+    - Ajouter / Inviter un membre
+    - Invitations en attente
+    - Paramètres du groupe
+
+  💳 PAIEMENTS
+    - Vue d'ensemble de la période
+    - Droit d'adhésion (onglet séparé)
+    - Enregistrer un paiement manuel
+    - Historique des transactions
+    - Paiements Wave en attente / échoués
+
+  🏦 CAISSE
+    - Solde en temps réel
+    - Historique des mouvements (journal)
+    - Enregistrer un décaissement
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. LOGIQUE MÉTIER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Statut Cotisation par Période
+  STATUT       | CONDITION
+  ─────────────┼──────────────────────────────────────────────────────────
+  À jour ✅    | versé = montant dû de la période en cours
+  Partiel ⚠️  | 0 < versé < montant dû de la période en cours
+  En retard ❌ | date dépassée ET versé < montant dû de la période en cours
+
+  Formules de Calcul
+    - Taux de collecte (%) = (total reçu / total attendu) × 100
+    - Solde caisse = Σ entrées ledger − Σ sorties ledger
+    - Reste à payer = montant dû − montant versé (période en cours)
+    - Crédit reporté = surpaiement période N → déduit du montant dû période N+1
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. ARCHITECTURE TECHNIQUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Backend
+    - API REST — PHP Laravel
+    - Authentification : magic link (auto-login) + OTP SMS en fallback
+    - JWT avec expiration courte
+    - File de jobs asynchrones : Redis + Horizon
+    - Jobs planifiés : rappels SMS, calculs de statuts
+
+  Frontend
+    - Next.js (dernière version, sans TypeScript)
+
+  Base de Données — Tables MVP
+  TABLE             | CONTENU
+  ──────────────────┼──────────────────────────────────────────────────────────
+  users             | Profil, téléphone, magic link token, OTP fallback
+  groupes           | Config, fréquence, montant, modules actifs
+  membres           | user ↔ groupe, statut (actif/non_verifie), montant perso
+  invitations       | Token, canal, expiration, statut
+  periodes          | Cycles, dates début/fin
+  paiements         | Montant, statut, mode, date, type, modifié, historique_json
+  paiements_log     | Avant/après modification, auteur, horodatage
+  adhesion_frais    | Montant dû, payé, statut par membre
+  caisse            | Nom, groupe_id, solde courant
+  caisse_ledger     | Type (entrée/sortie), montant, motif, date, ref_paiement_id
+  credits_membres   | Membre, montant crédit, période source, appliqué_periode
+
+  Webhook Wave
+    - Endpoint dédié avec validation signature HMAC
+    - Vérification idempotente : transaction_id unique avant tout traitement
+    - Doublon : ignoré silencieusement, log enregistré
+    - Retry automatique : 3 tentatives (30s, 5min, 30min)
+    - Mise à jour ledger déclenchée après confirmation
+    - Log immuable de chaque transaction
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. SÉCURITÉ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Authentification : magic link + OTP SMS en fallback
+  - JWT avec expiration courte
+  - Validation webhooks Wave par signature HMAC
+  - Logs immuables de toutes les transactions
+  - Audit trail complet des modifications de paiements cash
+  - Rate limiting sur les endpoints sensibles
+  - Contrôle d'accès : Gestionnaire / Trésorier / Membre
+  - Aucun stockage de données bancaires
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. MODÈLE ÉCONOMIQUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Le plan gratuit inclut Wave jusqu'à 20 transactions/mois pour permettre
+  à tout gestionnaire de tester la vraie valeur du produit avant de passer en PRO.
+
+  FONCTIONNALITÉ          | GRATUIT              | PRO
+  ────────────────────────┼──────────────────────┼───────────────────────────
+  Groupes                 | 1                    | Illimité
+  Membres                 | 10                   | Illimité
+  Paiement manuel (cash)  | ✅                   | ✅
+  Mobile Money Wave       | 20 transactions/mois | Quota ou pack mensuel
+  SMS                     | Quota mensuel inclus | Quota étendu ou pack
+  Historique              | 3 mois               | Complet
+  Dashboard               | Standard             | Avancé
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. UX / UI — PRINCIPES DE CONCEPTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Cible : utilisateurs peu ou pas à l'aise avec les outils numériques.
+
+  Contraintes UX (prioritaires)
+    - Interface très simplifiée
+    - Icônes explicites + textes courts + langage simple
+    - Navigation guidée (boutons clairs : "Payer", "Voir mes paiements", etc.)
+    - Zéro jargon technique
+    - Feedback visuel clair après chaque action (succès, erreur)
+    - Optimisé mobile (mobile-first)
+
+  UI Design
+    - Design moderne, épuré et rassurant (inspiré des apps fintech africaines)
+    - Couleur principale forte : bleu (confiance)
+    - Boutons larges et très visibles
+    - Hiérarchie visuelle claire (priorité aux actions)
+    - Affichage clair des statuts (validé, en attente, refusé…)
+    - Indicateurs visuels de sécurité
+    - Messages rassurants après paiement
+
+  Animations (Framer Motion)
+    - Animations simples et utiles uniquement (hover, clic, transitions douces)
+    - Scroll reveal sur la landing page
+    - Pas d'animations complexes qui ralentissent l'app
+
+  Dashboards
+    - Dashboard Membre (simple)
+    - Dashboard Gestionnaire (complet)
+    - Dashboard Super Admin
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. POINTS CLÉS À RESPECTER SCRUPULEUSEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Seul le GESTIONNAIRE crée son compte en premier, crée le groupe,
+     puis envoie un lien d'invitation (mail / SMS / WhatsApp) aux adhérents.
+
+  2. Un adhérent devient MEMBRE uniquement après paiement de l'adhésion
+     (si définie par le gestionnaire).
+
+  3. Période "Autre" → ouvrir un calendrier pour sélection manuelle.
+
+  4. Chaque membre ET gestionnaire a une CARTE VIRTUELLE téléchargeable
+     avec QR code dans son profil. Le QR code affiche l'historique de cotisations.
+
+  5. Le gestionnaire peut attribuer le rôle "Trésorier" à un membre.
+
+  6. Le gestionnaire peut exporter les statistiques en PDF ou CSV.
+
+
+================================================================================
+                    CotisPro MVP — Avril 2026 — Document révisé
+================================================================================
