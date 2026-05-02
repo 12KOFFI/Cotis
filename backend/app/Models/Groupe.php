@@ -17,6 +17,7 @@ class Groupe extends Model
     public function gestionnaire() { return $this->belongsTo(User::class, 'gestionnaire_id'); }
     public function membres() { return $this->hasMany(Membre::class); }
     public function invitations() { return $this->hasMany(Invitation::class); }
+    public function inviteLinks() { return $this->hasMany(GroupInviteLink::class); }
     public function periodes() { return $this->hasMany(Periode::class); }
     public function paiements() { return $this->hasMany(Paiement::class); }
     public function caisse() { return $this->hasOne(Caisse::class); }

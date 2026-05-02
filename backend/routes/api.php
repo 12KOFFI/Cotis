@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\CarteController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\SuperAdminController;
+use App\Http\Controllers\Api\GroupInviteLinkController;
+use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\WaveWebhookController;
 
 // Public
@@ -19,6 +21,8 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/accept-invitation', [AuthController::class, 'acceptInvitation']);
 Route::get('/invitations/{token}', [InvitationController::class, 'verify']);
+Route::get('/join/{token}', [JoinController::class, 'show']);
+Route::post('/join/{token}', [JoinController::class, 'join']);
 Route::get('/public/membre/{membre}/history', [CarteController::class, 'publicHistory']);
 Route::post('/webhooks/wave', [WaveWebhookController::class, 'handle']);
 
@@ -48,6 +52,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Invitations
     Route::get('/groupes/{groupe}/invitations', [InvitationController::class, 'index']);
     Route::post('/groupes/{groupe}/invitations', [InvitationController::class, 'store']);
+    Route::get('/groupes/{groupe}/invite-link', [GroupInviteLinkController::class, 'show']);
+    Route::post('/groupes/{groupe}/invite-link', [GroupInviteLinkController::class, 'store']);
+    Route::delete('/groupes/{groupe}/invite-link', [GroupInviteLinkController::class, 'destroy']);
 
     // Paiements
     Route::get('/groupes/{groupe}/paiements', [PaiementController::class, 'index']);
