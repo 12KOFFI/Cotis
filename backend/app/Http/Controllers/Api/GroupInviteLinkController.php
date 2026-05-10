@@ -15,7 +15,7 @@ class GroupInviteLinkController extends Controller
         $this->authorizeGroupe($request, $groupe);
         $link = $groupe->inviteLinks()->latest()->first();
 
-        return response()->json(['link' => $link ? $this->formatLink($link) : null]);
+        return response()->json(['link' => $link ? $this->formatLink($request, $link) : null]);
     }
 
     public function store(Request $request, Groupe $groupe)
@@ -37,7 +37,7 @@ class GroupInviteLinkController extends Controller
             'max_uses' => $data['max_uses'] ?? null,
         ]);
 
-        return response()->json(['link' => $this->formatLink($link)], 201);
+        return response()->json(['link' => $this->formatLink($request, $link)], 201);
     }
 
     public function destroy(Request $request, Groupe $groupe)
@@ -53,9 +53,10 @@ class GroupInviteLinkController extends Controller
         abort_unless($groupe->gestionnaire_id === $request->user()->id || $request->user()->role === 'super_admin', 403);
     }
 
-    protected function formatLink(GroupInviteLink $link): array
+    protected function formatLink(Request $request, GroupInviteLink $link): array
     {
-        $frontUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
+        $frontUrl = $request->headers->get('origin')
+            ?: config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
 
         return [
             'id' => $link->id,

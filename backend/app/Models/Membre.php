@@ -14,7 +14,13 @@ class Membre extends Model
     public function adhesion() { return $this->hasOne(AdhesionFrais::class); }
     public function credits() { return $this->hasMany(CreditMembre::class); }
 
+    protected $appends = ['full_name', 'public_token'];
+
     public function getFullNameAttribute() {
         return trim(($this->prenom ?? '') . ' ' . $this->nom);
+    }
+
+    public function getPublicTokenAttribute() {
+        return sha1($this->id . '.' . $this->groupe_id . '.' . config('app.key'));
     }
 }

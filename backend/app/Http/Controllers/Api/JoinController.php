@@ -45,11 +45,12 @@ class JoinController extends Controller
             'prenom' => 'nullable|string|max:120',
             'telephone' => 'nullable|string|max:30',
             'email' => 'required|email|max:160',
-            'password' => 'nullable|string|min:6',
+            'password' => 'nullable|string|min:6|confirmed',
         ]);
 
         $user = $this->resolveUser($request);
-        $existingUser = User::where('email', $data['email'])->first();
+        $email = $data['email'];
+        $existingUser = User::where('email', $email)->first();
 
         if (!$user && $existingUser) {
             if (!($data['password'] ?? null) || !Hash::check($data['password'], $existingUser->password)) {
@@ -64,7 +65,7 @@ class JoinController extends Controller
             }
             $user = User::create([
                 'name' => trim(($data['prenom'] ?? '') . ' ' . $data['nom']),
-                'email' => $data['email'],
+                'email' => $email,
                 'telephone' => $data['telephone'] ?? null,
                 'password' => Hash::make($data['password']),
                 'role' => 'membre',
@@ -87,7 +88,7 @@ class JoinController extends Controller
             'nom' => $data['nom'],
             'prenom' => $data['prenom'] ?? null,
             'telephone' => $data['telephone'] ?? $user->telephone,
-            'email' => $data['email'],
+            'email' => $email,
             'role' => 'membre',
             'statut' => 'actif_non_verifie',
         ]);

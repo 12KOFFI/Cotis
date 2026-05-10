@@ -54,7 +54,7 @@ class CarteController extends Controller
             'membre' => $membre,
             'groupe' => $groupe,
             'qr' => $qrB64,
-        ])->setPaper([0, 0, 260, 400]);
+        ])->setPaper([0, 0, 400, 260]);
         return $pdf->download('carte-' . $membre->id . '.pdf');
     }
 
