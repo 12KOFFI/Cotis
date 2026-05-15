@@ -13,7 +13,7 @@ class CaisseController extends Controller
     {
         $this->authorizeGroupe($request, $groupe, true);
         $caisse = $groupe->caisse;
-        $ledger = CaisseLedger::where('groupe_id', $groupe->id)->latest('date')->limit(100)->get();
+        $ledger = CaisseLedger::where('groupe_id', $groupe->id)->with('paiement.membre')->latest('date')->limit(100)->get();
         $entrees = (int) CaisseLedger::where('groupe_id', $groupe->id)->where('type', 'entree')->sum('montant');
         $sorties = (int) CaisseLedger::where('groupe_id', $groupe->id)->where('type', 'sortie')->sum('montant');
         return response()->json([

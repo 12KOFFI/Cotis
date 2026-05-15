@@ -62,6 +62,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/groupes/{groupe}/paiements/{paiement}', [PaiementController::class, 'update']);
     Route::get('/groupes/{groupe}/mes-paiements', [PaiementController::class, 'mesPaiements']);
 
+    // Demandes de paiement (membre soumet, gestionnaire valide/refuse)
+    Route::post('/groupes/{groupe}/paiements/demande', [PaiementController::class, 'storeDemande']);
+    Route::get('/groupes/{groupe}/paiements/demandes', [PaiementController::class, 'demandes']);
+    Route::post('/groupes/{groupe}/paiements/{paiement}/valider', [PaiementController::class, 'validerDemande']);
+    Route::post('/groupes/{groupe}/paiements/{paiement}/refuser', [PaiementController::class, 'refuserDemande']);
+
     // Caisse
     Route::get('/groupes/{groupe}/caisse', [CaisseController::class, 'show']);
     Route::post('/groupes/{groupe}/caisse/decaissement', [CaisseController::class, 'decaisser']);

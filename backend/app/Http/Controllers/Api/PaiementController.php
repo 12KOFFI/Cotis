@@ -33,6 +33,167 @@ class PaiementController extends Controller
         return response()->json(['paiements' => $paiements, 'membre' => $membre->load('adhesion', 'credits')]);
     }
 
+    public function demandes(Request $request, Groupe $groupe)
+    {
+        $this->authorizeGroupe($request, $groupe);
+        $demandes = $groupe->paiements()
+            ->where('statut', 'en_attente')
+            ->where('enregistre_par', null)
+            ->with('membre')
+            ->latest('created_at')
+            ->get();
+        return response()->json(['demandes' => $demandes]);
+    }
+
+    public function storeDemande(Request $request, Groupe $groupe)
+    {
+        $u = $request->user();
+        $membre = $groupe->membres()->where('user_id', $u->id)->first();
+        abort_unless($membre, 403, "Vous n'êtes pas membre de ce groupe.");
+
+        $data = $request->validate([
+            'montant' => 'required|integer|min:1',
+            'mode' => 'required|in:orange_money,wave,moov,mtn',
+            'preuve' => 'required|image|mimes:jpeg,png,webp|max:5120',
+        ]);
+
+        $path = $request->file('preuve')->store('preuves', 'public');
+
+        $paiement = Paiement::create([
+            'groupe_id' => $groupe->id,
+            'membre_id' => $membre->id,
+            'type' => 'cotisation',
+            'montant' => $data['montant'],
+            'mode' => $data['mode'],
+            'statut' => 'en_attente',
+            'date_paiement' => now()->toDateString(),
+            'preuve_path' => $path,
+            'note' => 'Soumis par le membre',
+        ]);
+
+        return response()->json(['paiement' => $paiement], 201);
+    }
+
+    public function validerDemande(Request $request, Groupe $groupe, Paiement $paiement)
+    {
+        $this->authorizeGroupe($request, $groupe);
+        abort_unless($paiement->groupe_id === $groupe->id, 404);
+        abort_unless($paiement->statut === 'en_attente', 422, 'Cette demande a déjà été traitée.');
+
+        $groupe->ensurePeriodsUpToDate();
+
+        return DB::transaction(function () use ($groupe, $paiement, $request) {
+            $paiement->update([
+                'statut' => 'reussi',
+                'valide_par' => $request->user()->id,
+                'valide_at' => now(),
+                'enregistre_par' => $request->user()->id,
+            ]);
+
+            $membre = $paiement->membre;
+
+            // Imputation sur période
+            $reste = $paiement->montant;
+            if ($paiement->type === 'cotisation') {
+                $periodes = $groupe->periodes()->orderBy('date_debut')->get();
+                foreach ($periodes as $p) {
+                    if ($reste <= 0) break;
+                    $du = $membre->montant_perso ?? $groupe->montant_standard;
+                    $deja = Paiement::where('membre_id', $membre->id)
+                        ->where('periode_id', $p->id)
+                        ->where('type', 'cotisation')
+                        ->where('statut', 'reussi')
+                        ->where('id', '!=', $paiement->id)
+                        ->sum('montant');
+                    $manquant = max(0, $du - $deja);
+                    if ($manquant <= 0) continue;
+                    $apply = min($manquant, $reste);
+                    $paiement->periode_id = $p->id;
+                    $reste -= $apply;
+                }
+                if ($reste > 0) {
+                    CreditMembre::create([
+                        'groupe_id' => $groupe->id,
+                        'membre_id' => $membre->id,
+                        'montant' => $reste,
+                        'periode_source_id' => optional($periodes->last())->id,
+                    ]);
+                }
+                if ($membre->statut === 'actif_non_verifie') {
+                    $membre->statut = 'actif';
+                    $membre->save();
+                }
+            }
+
+            // Adhesion
+            if ($paiement->type === 'adhesion' && $groupe->adhesion_active) {
+                $ad = AdhesionFrais::firstOrCreate(
+                    ['groupe_id' => $groupe->id, 'membre_id' => $membre->id],
+                    ['montant_du' => $groupe->adhesion_montant]
+                );
+                $ad->montant_paye += $paiement->montant;
+                if ($ad->montant_paye >= $ad->montant_du) {
+                    $ad->statut = 'paye';
+                    $ad->paye_at = now();
+                }
+                $ad->save();
+            }
+
+            $paiement->save();
+
+            // Caisse + ledger
+            $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
+            CaisseLedger::create([
+                'caisse_id' => $caisse->id,
+                'groupe_id' => $groupe->id,
+                'type' => 'entree',
+                'montant' => $paiement->montant,
+                'motif' => 'Validation paiement - ' . ($membre->full_name),
+                'date' => now()->toDateString(),
+                'paiement_id' => $paiement->id,
+                'auteur_id' => $request->user()->id,
+            ]);
+            $caisse->solde += $paiement->montant;
+            $caisse->save();
+
+            PaiementLog::create([
+                'paiement_id' => $paiement->id,
+                'auteur_id' => $request->user()->id,
+                'avant' => ['statut' => 'en_attente'],
+                'apres' => $paiement->toArray(),
+                'action' => 'validation',
+            ]);
+
+            return response()->json(['paiement' => $paiement->load('membre')]);
+        });
+    }
+
+    public function refuserDemande(Request $request, Groupe $groupe, Paiement $paiement)
+    {
+        $this->authorizeGroupe($request, $groupe);
+        abort_unless($paiement->groupe_id === $groupe->id, 404);
+        abort_unless($paiement->statut === 'en_attente', 422, 'Cette demande a déjà été traitée.');
+
+        $data = $request->validate(['motif_refus' => 'nullable|string|max:500']);
+
+        $paiement->update([
+            'statut' => 'echoue',
+            'valide_par' => $request->user()->id,
+            'valide_at' => now(),
+            'note' => $data['motif_refus'] ? 'Refusé : ' . $data['motif_refus'] : 'Refusé par le gestionnaire',
+        ]);
+
+        PaiementLog::create([
+            'paiement_id' => $paiement->id,
+            'auteur_id' => $request->user()->id,
+            'avant' => ['statut' => 'en_attente'],
+            'apres' => $paiement->toArray(),
+            'action' => 'refus',
+        ]);
+
+        return response()->json(['paiement' => $paiement]);
+    }
+
     public function store(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe);
@@ -46,6 +207,7 @@ class PaiementController extends Controller
         ]);
         $membre = Membre::findOrFail($data['membre_id']);
         abort_unless($membre->groupe_id === $groupe->id, 422);
+        $groupe->ensurePeriodsUpToDate();
 
         return DB::transaction(function () use ($groupe, $membre, $data, $request) {
             // Blocage : non-adhérent ne peut pas payer de cotisations si adhésion non payée
