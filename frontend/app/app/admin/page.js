@@ -1,0 +1,105 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { Users, Building2, Wallet, Send } from "lucide-react";
+import AppShell from "../../components/AppShell";
+import { api, auth, fcfa } from "../../lib/api";
+
+export default function SuperAdmin() {
+  const router = useRouter();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    api.get("/admin/overview").then((r)=>{ setData(r.data); setLoading(false); }).catch(()=>router.push("/app"));
+  }, [router]);
+
+  return (
+    <AppShell title="Administration" role="super_admin">
+      {!data ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[1,2,3,4].map(i=><div key={i} className="h-24 animate-pulse rounded-3xl bg-wave-100/60"/>)}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {[1,2].map(i=><div key={i} className="h-48 animate-pulse rounded-3xl bg-wave-100/60"/>)}
+          </div>
+        </div>
+      ) : data && (
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.3}}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <KPI Icon={Users} label="Utilisateurs" value={data.users} sub={`${data.gestionnaires} gest. · ${data.membres} mbr.`} tone="dark"/>
+            <KPI Icon={Building2} label="Groupes" value={data.groupes}/>
+            <KPI Icon={Wallet} label="Volume encaissé" value={fcfa(data.paiements_total)}/>
+            <KPI Icon={Send} label="Invitations" value={data.invitations_envoyees}/>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <div className="card">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-base font-bold">Derniers groupes</h3>
+                <span className="text-[10px] text-wave-400">{data.derniers_groupes.length} récents</span>
+              </div>
+              {data.derniers_groupes.length === 0 ? (
+                <p className="py-6 text-center text-sm text-wave-500">Aucun groupe.</p>
+              ) : (
+                <ul className="divide-y divide-wave-50">
+                  {data.derniers_groupes.map((g)=>(
+                    <li key={g.id} className="flex items-center justify-between py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{g.nom}</p>
+                        <p className="text-[11px] text-wave-400 capitalize">{g.type} · {g.plan}</p>
+                      </div>
+                      <p className="shrink-0 text-[10px] text-wave-400">{new Date(g.created_at).toLocaleDateString("fr-FR")}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="card">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-base font-bold">Derniers utilisateurs</h3>
+                <span className="text-[10px] text-wave-400">{data.derniers_users.length} récents</span>
+              </div>
+              {data.derniers_users.length === 0 ? (
+                <p className="py-6 text-center text-sm text-wave-500">Aucun utilisateur.</p>
+              ) : (
+                <ul className="divide-y divide-wave-50">
+                  {data.derniers_users.map((u)=>(
+                    <li key={u.id} className="flex items-center justify-between py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full wave-bg text-[11px] font-bold text-white">{(u.name||"?")[0]}</span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{u.name}</p>
+                          <p className="truncate text-[11px] text-wave-400">{u.email}</p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-wave-50 px-2 py-0.5 text-[9px] font-semibold capitalize text-wave-600">{u.role}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AppShell>
+  );
+}
+
+function KPI({ Icon, label, value, sub, tone }) {
+  const dark = tone === "dark";
+  return (
+    <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={`rounded-3xl p-4 shadow-soft ring-1 ring-wave-100 ${dark ? "wave-bg text-white ring-0" : "bg-white"}`}>
+      <div className="flex items-center gap-3">
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${dark ? "bg-white/15" : "bg-wave-50 text-wave-700"}`}><Icon className="h-5 w-5"/></span>
+        <div className="min-w-0">
+          <p className={`text-[11px] leading-tight ${dark ? "text-white/70" : "text-wave-500"}`}>{label}</p>
+          <p className="font-display text-xl font-extrabold leading-tight">{value}</p>
+        </div>
+      </div>
+      {sub && <p className={`mt-2 text-[10px] ${dark ? "text-white/60" : "text-wave-400"}`}>{sub}</p>}
+    </motion.div>
+  );
+}
