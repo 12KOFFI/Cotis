@@ -1,24 +1,6 @@
-frontend/package.json
-- Suppression de `next-pwa` (incompatible avec Turbopack / Next.js 16).
+=== Fix: adhesion_montant cannot be null ===
 
-frontend/next.config.mjs
-- Retrait de la configuration `next-pwa` (webpack plugin). Retour au config Next.js standard, compatible Turbopack.
-
-frontend/public/manifest.json (Nouveau fichier)
-- Création du manifest Web App avec les configurations de nom, de couleurs (theme_color, background_color), de mode d'affichage (`standalone`) et de l'URL de démarrage (`/`).
-
-frontend/public/sw.js (Nouveau fichier)
-- Création d'un service worker statique léger (compatible Turbopack) avec une stratégie network-first et un cache de fallback pour le mode hors-ligne basique.
-
-frontend/public/icons/icon-192.png et icon-512.png (Nouveaux fichiers)
-- Création et ajout des icônes de l'application (tailles 192x192 et 512x512). Version améliorée basée sur le fichier original `icon-00.png` fourni.
-
-frontend/app/layout.js
-- Mise à jour de l'objet `metadata` pour intégrer le `manifest.json`, les icônes Apple (appleWebApp), et les méta-tags pour la barre d'état.
-- Mise à jour de l'objet `viewport` pour inclure la `themeColor` correspondante à la PWA.
-- Import et inclusion globale du composant `PwaInstallPrompt` pour inviter les utilisateurs à installer l'application.
-
-frontend/app/components/PwaInstallPrompt.js (Nouveau fichier)
-- Création d'un composant flottant "Installer CotisPro" qui intercepte l'événement `beforeinstallprompt` du navigateur pour proposer l'installation de la PWA.
-- Enregistrement automatique du service worker (`/sw.js`) au chargement de l'app.
-- Gestion locale (localStorage) pour ne pas afficher le prompt si l'utilisateur l'a déjà refusé.
+backend/database/migrations/2026_05_01_225628_create_groupes_table.php
+backend/database/migrations/2026_05_17_192100_make_adhesion_montant_nullable_in_groupes.php (NOUVEAU)
+backend/app/Http/Controllers/Api/GroupeController.php
+frontend/app/app/groupes/new/page.js

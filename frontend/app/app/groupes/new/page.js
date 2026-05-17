@@ -46,7 +46,11 @@ export default function NewGroupe() {
   async function submit() {
     setErr(""); setLoading(true);
     try {
-      const { data } = await api.post("/groupes", f);
+      const payload = {
+        ...f,
+        adhesion_montant: f.adhesion_active ? (f.adhesion_montant || 0) : 0,
+      };
+      const { data } = await api.post("/groupes", payload);
       router.push(`/app/g/${data.groupe.id}?welcome=1`);
     } catch (e) {
       const errors = e.response?.data?.errors;

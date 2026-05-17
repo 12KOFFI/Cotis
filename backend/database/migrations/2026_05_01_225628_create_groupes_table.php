@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('logo')->nullable();
             // Adhésion
             $table->boolean('adhesion_active')->default(false);
-            $table->unsignedBigInteger('adhesion_montant')->default(0);
+            $table->unsignedBigInteger('adhesion_montant')->nullable()->default(0);
             // Cotisation
             $table->enum('frequence', ['hebdomadaire', 'mensuelle', 'trimestrielle', 'annuelle', 'autre'])->default('mensuelle');
             $table->json('dates_autres')->nullable(); // pour "Autre" : tableau de dates

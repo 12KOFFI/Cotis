@@ -51,6 +51,10 @@ class GroupeController extends Controller
             'wave_pays' => 'nullable|string|in:CI,SN',
         ]);
         $data['gestionnaire_id'] = $request->user()->id;
+        // Ensure adhesion_montant is never null — default to 0 when adhesion is inactive
+        if (empty($data['adhesion_active']) || !isset($data['adhesion_montant'])) {
+            $data['adhesion_montant'] = 0;
+        }
         $groupe = Groupe::create($data);
         // Create unique caisse
         Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
