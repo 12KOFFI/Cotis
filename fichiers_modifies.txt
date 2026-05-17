@@ -4,3 +4,11 @@ backend/database/migrations/2026_05_01_225628_create_groupes_table.php
 backend/database/migrations/2026_05_17_192100_make_adhesion_montant_nullable_in_groupes.php (NOUVEAU)
 backend/app/Http/Controllers/Api/GroupeController.php
 frontend/app/app/groupes/new/page.js
+
+=== Amélioration formulaire inscription: email suggestions + sélecteur pays téléphone ===
+
+frontend/app/components/PhoneInput.js (NOUVEAU)
+frontend/app/register/page.js
+frontend/app/join/[token]/page.js
+frontend/app/app/g/[id]/page.js
+frontend/app/app/g/[id]/membres/page.js

@@ -3,19 +3,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, Users, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, Users, Wallet } from "lucide-react";
 import { api, auth } from "../../lib/api";
-
-const countries = [
-  { code: "CI", label: "Côte d'Ivoire", dial: "+225", flag: "🇨🇮" },
-  { code: "SN", label: "Sénégal", dial: "+221", flag: "🇸🇳" },
-  { code: "ML", label: "Mali", dial: "+223", flag: "🇲🇱" },
-  { code: "BF", label: "Burkina Faso", dial: "+226", flag: "🇧🇫" },
-  { code: "GN", label: "Guinée", dial: "+224", flag: "🇬🇳" },
-  { code: "BJ", label: "Bénin", dial: "+229", flag: "🇧🇯" },
-  { code: "TG", label: "Togo", dial: "+228", flag: "🇹🇬" },
-  { code: "CM", label: "Cameroun", dial: "+237", flag: "🇨🇲" },
-];
+import PhoneInput from "../../components/PhoneInput";
 
 export default function JoinPage() {
   const { token } = useParams();
@@ -25,7 +15,6 @@ export default function JoinPage() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ nom: "", prenom: "", telephone: "", email: "", password: "", password_confirmation: "" });
-  const [countryCode, setCountryCode] = useState("CI");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [connectedUser] = useState(() => auth.getUser());
@@ -71,18 +60,6 @@ export default function JoinPage() {
     }
   }
 
-  function selectCountry(code) {
-    const country = countries.find((c) => c.code === code);
-    setCountryCode(code);
-    if (!country) return;
-    setForm((f) => ({
-      ...f,
-      telephone: !f.telephone || countries.some((c) => f.telephone === c.dial || f.telephone.startsWith(`${c.dial} `))
-        ? `${country.dial} `
-        : f.telephone,
-    }));
-  }
-
   return (
     <main className="hero-gradient flex min-h-screen items-center justify-center px-5 py-10">
       <motion.div initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
@@ -119,18 +96,12 @@ export default function JoinPage() {
                   <div><label className="label">Nom *</label><input required className="input" value={form.nom} onChange={(e)=>setForm({...form,nom:e.target.value})} /></div>
                 </div>
                 <div>
-                  <label className="label">Pays et téléphone</label>
-                  <div className="grid grid-cols-[minmax(0,1fr)_1.4fr] gap-2">
-                    <select className="input px-3" value={countryCode} onChange={(e)=>selectCountry(e.target.value)}>
-                      {countries.map((country) => (
-                        <option key={country.code} value={country.code}>{country.flag} {country.code} {country.dial}</option>
-                      ))}
-                    </select>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wave-400"/>
-                      <input className="input pl-10" inputMode="tel" value={form.telephone} onFocus={()=>!form.telephone && selectCountry(countryCode)} onChange={(e)=>setForm({...form,telephone:e.target.value})} />
-                    </div>
-                  </div>
+                  <label className="label">Téléphone</label>
+                  <PhoneInput
+                    value={form.telephone}
+                    onChange={(val) => setForm({...form, telephone: val})}
+                    defaultCountry="CI"
+                  />
                 </div>
                 <div><label className="label">E-mail *</label><div className="relative"><Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wave-400"/><input required type="email" className="input pl-10" value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})} /></div></div>
                 {!connectedUser && (

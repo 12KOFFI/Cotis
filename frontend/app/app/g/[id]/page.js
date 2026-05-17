@@ -9,6 +9,7 @@ import {
   ImageUp, X, Eye, Trash2, BellRing
 } from "lucide-react";
 import AppShell from "../../../components/AppShell";
+import PhoneInput from "../../../components/PhoneInput";
 import { api, fcfa, formatMoney, API_BASE, auth } from "../../../lib/api";
 
 export default function ManagerDashboard() {
@@ -553,7 +554,7 @@ function InviteModal({ groupeId, onClose }) {
             <div><label className="label">Prénom</label><input className="input" value={f.prenom} onChange={(e)=>setF({...f,prenom:e.target.value})}/></div>
             <div><label className="label">Nom</label><input className="input" value={f.nom} onChange={(e)=>setF({...f,nom:e.target.value})}/></div>
           </div>
-          <div><label className="label">Téléphone</label><input className="input" value={f.telephone} onChange={(e)=>setF({...f,telephone:e.target.value})} placeholder="+225 ..."/></div>
+          <div><label className="label">Téléphone</label><PhoneInput value={f.telephone} onChange={(val)=>setF({...f,telephone:val})} defaultCountry="CI" /></div>
           <div><label className="label">E-mail</label><input className="input" type="email" value={f.email} onChange={(e)=>setF({...f,email:e.target.value})}/></div>
           <div>
             <label className="label">Canal</label>

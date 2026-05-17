@@ -1,10 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Wallet, ArrowRight, User, Mail, Phone, Lock, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Wallet, ArrowRight, User, Mail, Lock, ShieldCheck, ArrowLeft } from "lucide-react";
 import { api, auth } from "../lib/api";
+import PhoneInput from "../components/PhoneInput";
+
+const EMAIL_DOMAINS = ["@gmail.com", "@yahoo.fr", "@hotmail.com", "@outlook.com", "@yahoo.com"];
 
 export default function Register() {
   const router = useRouter();
@@ -17,6 +20,21 @@ export default function Register() {
   });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const emailRef = useRef(null);
+
+  // Compute email suggestions based on current input
+  const emailSuggestions = (() => {
+    const val = form.email.trim();
+    if (!val || val.includes("@")) return [];
+    return EMAIL_DOMAINS.map((d) => val + d);
+  })();
+
+  function selectSuggestion(suggestion) {
+    setForm({ ...form, email: suggestion });
+    setShowSuggestions(false);
+    emailRef.current?.blur();
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -86,21 +104,49 @@ export default function Register() {
                   <input className="input pl-12 bg-slate-50 border-slate-100 h-14" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Aminata Diallo" />
                 </div>
               </div>
-              <div>
+              <div className="relative">
                 <label className="label text-xs font-black uppercase tracking-wider text-slate-400 mb-2 block">Adresse E-mail</label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 group-focus-within:text-wave-600 transition-colors" />
-                  <input type="email" required className="input pl-12 bg-slate-50 border-slate-100 h-14" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="vous@email.com" />
+                  <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 group-focus-within:text-wave-600 transition-colors z-10" />
+                  <input
+                    ref={emailRef}
+                    type="email"
+                    required
+                    className="input pl-12 bg-slate-50 border-slate-100 h-14"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    placeholder="vous@gmail.com"
+                  />
+                  {/* Email domain suggestions */}
+                  {showSuggestions && emailSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-2xl bg-white shadow-xl ring-1 ring-wave-100 border border-wave-100 overflow-hidden">
+                      {emailSuggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition hover:bg-wave-50"
+                        >
+                          <Mail className="h-3.5 w-3.5 text-wave-400 shrink-0" />
+                          <span className="text-wave-900 font-medium truncate">{s}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             
             <div>
               <label className="label text-xs font-black uppercase tracking-wider text-slate-400 mb-2 block">Numéro de Téléphone</label>
-              <div className="relative group">
-                <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 group-focus-within:text-wave-600 transition-colors" />
-                <input className="input pl-12 bg-slate-50 border-slate-100 h-14" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} placeholder="+225 07 00 00 00 00" />
-              </div>
+              <PhoneInput
+                value={form.telephone}
+                onChange={(val) => setForm({ ...form, telephone: val })}
+                defaultCountry="CI"
+                large
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

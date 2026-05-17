@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Search, UserPlus, Star, Trash2, Edit3, ShieldCheck, QrCode } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import AppShell from "../../../../components/AppShell";
+import PhoneInput from "../../../../components/PhoneInput";
 import { api, fcfa } from "../../../../lib/api";
 
 const STATUT_COULEURS = {
@@ -157,7 +158,7 @@ function AddModal({ groupeId, groupe, onClose }) {
             <div><label className="label">Prénom</label><input className="input" value={f.prenom} onChange={(e)=>setF({...f,prenom:e.target.value})}/></div>
             <div><label className="label">Nom *</label><input className="input" value={f.nom} onChange={(e)=>setF({...f,nom:e.target.value})}/></div>
           </div>
-          <div><label className="label">Téléphone</label><input className="input" value={f.telephone} onChange={(e)=>setF({...f,telephone:e.target.value})} placeholder="+225 07 00 00 00"/></div>
+          <div><label className="label">Téléphone</label><PhoneInput value={f.telephone} onChange={(val)=>setF({...f,telephone:val})} defaultCountry="CI" /></div>
           <div><label className="label">E-mail</label><input type="email" className="input" value={f.email} onChange={(e)=>setF({...f,email:e.target.value})}/></div>
           {groupe?.montant_personnalisable && (
             <div>
