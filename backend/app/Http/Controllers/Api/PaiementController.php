@@ -45,6 +45,22 @@ class PaiementController extends Controller
         return response()->json(['demandes' => $demandes]);
     }
 
+    public function preuveImage(Request $request, Groupe $groupe, Paiement $paiement)
+    {
+        $this->authorizeGroupe($request, $groupe, true);
+        abort_unless($paiement->groupe_id === $groupe->id, 404);
+        abort_unless($paiement->preuve_path, 404, 'Aucune preuve jointe.');
+
+        $path = storage_path('app/public/' . $paiement->preuve_path);
+        abort_unless(file_exists($path), 404, 'Fichier introuvable.');
+
+        $mime = mime_content_type($path);
+        return response()->file($path, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
     public function storeDemande(Request $request, Groupe $groupe)
     {
         $u = $request->user();
@@ -55,14 +71,20 @@ class PaiementController extends Controller
             'montant' => 'required|integer|min:1',
             'mode' => 'required|in:orange_money,wave,moov,mtn',
             'preuve' => 'required|image|mimes:jpeg,png,webp|max:5120',
+            'type' => 'required|in:cotisation,adhesion,autre',
         ]);
+
+        if ($data['type'] === 'cotisation' && $groupe->adhesion_active) {
+            $ad = $membre->adhesion;
+            abort_if($ad && $ad->statut !== 'paye', 422, "Droit d'adhésion non réglé. Veuillez d'abord régler l'adhésion.");
+        }
 
         $path = $request->file('preuve')->store('preuves', 'public');
 
         $paiement = Paiement::create([
             'groupe_id' => $groupe->id,
             'membre_id' => $membre->id,
-            'type' => 'cotisation',
+            'type' => $data['type'],
             'montant' => $data['montant'],
             'mode' => $data['mode'],
             'statut' => 'en_attente',

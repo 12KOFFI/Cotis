@@ -15,7 +15,8 @@ export default function CaissePage() {
   const [decOpen, setDecOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
 
-  const STORAGE_URL = API_BASE.replace("/api", "/storage/");
+  const [preuveUrl, setPreuveUrl] = useState(null);
+  const [preuveLoading, setPreuveLoading] = useState(false);
 
   async function load(){
     const r = await api.get(`/groupes/${id}/caisse`);
@@ -186,9 +187,26 @@ export default function CaissePage() {
                     {selectedEntry.paiement.preuve_path && (
                       <div>
                         <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-wave-400">Preuve de paiement</p>
-                        <div className="rounded-2xl overflow-hidden border-2 border-wave-200">
-                          <img src={STORAGE_URL + selectedEntry.paiement.preuve_path} alt="Preuve" className="w-full object-cover" />
-                        </div>
+                        {preuveUrl ? (
+                          <div className="rounded-2xl overflow-hidden border-2 border-wave-200">
+                            <img src={preuveUrl} alt="Preuve" className="w-full object-cover" />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              setPreuveLoading(true);
+                              try {
+                                const r = await api.get(`/groupes/${id}/paiements/${selectedEntry.paiement.id}/preuve`, { responseType: "blob" });
+                                setPreuveUrl(URL.createObjectURL(r.data));
+                              } catch { }
+                              setPreuveLoading(false);
+                            }}
+                            disabled={preuveLoading}
+                            className="flex items-center gap-2 rounded-xl bg-wave-50 px-3 py-2.5 text-xs font-semibold text-wave-700 transition hover:bg-brand-50 border border-wave-200 w-full disabled:opacity-50"
+                          >
+                            <Eye className="h-4 w-4" /> {preuveLoading ? "Chargement..." : "Voir la preuve"}
+                          </button>
+                        )}
                       </div>
                     )}
                   </>
@@ -203,7 +221,7 @@ export default function CaissePage() {
 }
 
 function DecaissementModal({ groupeId, max, onClose }) {
-  const [f, setF] = useState({ montant: 0, motif: "", beneficiaire: "", date: new Date().toISOString().slice(0,10) });
+  const [f, setF] = useState({ montant: "", motif: "", beneficiaire: "", date: new Date().toISOString().slice(0,10) });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   async function submit(){
@@ -231,7 +249,7 @@ function DecaissementModal({ groupeId, max, onClose }) {
           <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full border border-wave-100 text-wave-500 transition hover:bg-wave-50 hover:text-wave-700">✕</button>
         </div>
         <div className="space-y-3">
-          <div><label className="label">Montant (FCFA)</label><input type="number" min="1" max={max} className="input" value={f.montant} onChange={(e)=>setF({...f,montant:parseInt(e.target.value)||0})}/></div>
+          <div><label className="label">Montant (FCFA)</label><input type="number" min="1" max={max} className="input" placeholder="Entrer un montant" value={f.montant} onChange={(e)=>setF({...f,montant:e.target.value?parseInt(e.target.value):""})}/></div>
           <div><label className="label">Motif *</label><input className="input" value={f.motif} onChange={(e)=>setF({...f,motif:e.target.value})} placeholder="Ex: Achat fournitures"/></div>
           <div><label className="label">Bénéficiaire</label><input className="input" value={f.beneficiaire} onChange={(e)=>setF({...f,beneficiaire:e.target.value})}/></div>
           <div><label className="label">Date</label><input type="date" className="input" value={f.date} onChange={(e)=>setF({...f,date:e.target.value})}/></div>

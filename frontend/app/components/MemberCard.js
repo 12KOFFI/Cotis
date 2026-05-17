@@ -34,7 +34,7 @@ export default function MemberCard({ membre, groupe, onDownload, onPrint }) {
         ref={cardRef}
         initial={{ opacity: 0, scale: 0.95 }} 
         animate={{ opacity: 1, scale: 1 }}
-        className="relative w-full max-w-[340px] overflow-hidden rounded-3xl bg-[#1e40af] p-6 text-white shadow-2xl print:shadow-none"
+        className="relative w-full max-w-[340px] overflow-hidden rounded-3xl bg-[#1e40af] p-6 text-white shadow-2xl print:shadow-none print:break-inside-avoid"
       >
         {/* Gold Bar at the top */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600" />
@@ -80,7 +80,7 @@ export default function MemberCard({ membre, groupe, onDownload, onPrint }) {
 
       {/* Action Buttons */}
       {(onDownload || onPrint) && (
-        <div className="mt-6 flex gap-3 w-full max-w-[340px]">
+        <div className="mt-6 flex gap-3 w-full max-w-[340px] print:hidden">
           {onDownload && (
             <button 
               onClick={onDownload} 

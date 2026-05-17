@@ -26,12 +26,16 @@ export default function ProfilPage() {
     // Generate pdf from backend
     api.get(`/groupes/${membre.groupe_id}/membres/${membre.id}/carte/pdf`, { responseType: 'blob' })
       .then(r => {
-        const url = window.URL.createObjectURL(new Blob([r.data]));
+        const url = window.URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `carte-${membre.groupe.nom}.pdf`);
         document.body.appendChild(link);
         link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 200);
       })
       .catch(err => {
         console.error(err);
@@ -55,9 +59,9 @@ export default function ProfilPage() {
 
   return (
     <AppShell title="Mon Profil" back>
-      <div className="mx-auto max-w-xl space-y-8 pb-10">
+      <div className="mx-auto max-w-xl space-y-8 pb-10 print:m-0 print:space-y-0 print:pb-0">
         {/* User Info */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="card flex items-center gap-4">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="card flex items-center gap-4 print:hidden">
           <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full wave-bg text-2xl font-bold text-white shadow-soft">
             {(user.name || "?")[0]}
           </div>
@@ -74,8 +78,8 @@ export default function ProfilPage() {
         </motion.div>
 
         {/* Memberships & Cards */}
-        <div className="space-y-6">
-          <div>
+        <div className="space-y-6 print:space-y-0">
+          <div className="print:hidden">
             <h3 className="font-display text-lg font-bold text-wave-900 mb-1">Mes Cartes Membre</h3>
             <p className="text-sm text-wave-500">Vous avez {user.membres?.length || 0} groupe(s).</p>
           </div>

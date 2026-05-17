@@ -13,7 +13,7 @@ export default function AppHome() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [editGroup, setEditGroup] = useState(null);
-  const [f, setF] = useState({ devise: "FCFA", montant_standard: 0, adhesion_active: false, adhesion_montant: 0 });
+  const [f, setF] = useState({ devise: "FCFA", montant_standard: "", adhesion_active: false, adhesion_montant: "" });
   const [saving, setSaving] = useState(false);
 
   function fetchGroupes() {
@@ -126,7 +126,7 @@ export default function AppHome() {
                         Ouvrir <ArrowRight className="h-4 w-4" />
                       </span>
                       {isManager && (
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setF({ devise: g.devise || "FCFA", montant_standard: g.montant_standard || 0, adhesion_active: g.adhesion_active || false, adhesion_montant: g.adhesion_montant || 0 }); setEditGroup(g); }} className="text-sm bg-white/20 hover:bg-white/30 transition px-3 py-1.5 rounded-xl text-white font-bold flex items-center gap-1">
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setF({ devise: g.devise || "FCFA", montant_standard: g.montant_standard || "", adhesion_active: g.adhesion_active || false, adhesion_montant: g.adhesion_montant || "" }); setEditGroup(g); }} className="text-sm bg-white/20 hover:bg-white/30 transition px-3 py-1.5 rounded-xl text-white font-bold flex items-center gap-1">
                           Tarifs
                         </button>
                       )}
@@ -166,7 +166,7 @@ export default function AppHome() {
               </div>
               <div>
                 <label className="label">Montant de la cotisation ({f.devise})</label>
-                <input type="number" min="0" className="input text-lg font-bold" value={f.montant_standard} onChange={(e)=>setF({...f, montant_standard: parseInt(e.target.value) || 0})} />
+                <input type="number" min="0" className="input text-lg font-bold" placeholder="Entrer un montant" value={f.montant_standard} onChange={(e)=>setF({...f, montant_standard: e.target.value?parseInt(e.target.value):""})} />
                 <p className="text-[10px] text-wave-500 mt-1">Ce montant s'appliquera par défaut à chaque période.</p>
               </div>
               <div className="pt-2 border-t border-wave-100">
@@ -177,7 +177,7 @@ export default function AppHome() {
                 {f.adhesion_active && (
                   <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:"auto"}}>
                     <label className="label mt-2">Montant de l'adhésion ({f.devise})</label>
-                    <input type="number" min="0" className="input text-lg font-bold" value={f.adhesion_montant} onChange={(e)=>setF({...f, adhesion_montant: parseInt(e.target.value) || 0})} />
+                    <input type="number" min="0" className="input text-lg font-bold" placeholder="Entrer un montant" value={f.adhesion_montant} onChange={(e)=>setF({...f, adhesion_montant: e.target.value?parseInt(e.target.value):""})} />
                   </motion.div>
                 )}
               </div>

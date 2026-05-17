@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/groupes', [GroupeController::class, 'store']);
     Route::get('/groupes/{groupe}', [GroupeController::class, 'show']);
     Route::put('/groupes/{groupe}', [GroupeController::class, 'update']);
+    Route::delete('/groupes/{groupe}', [GroupeController::class, 'destroy']);
 
     // Dashboards
     Route::get('/groupes/{groupe}/dashboard', [DashboardController::class, 'gestionnaire']);
@@ -67,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/groupes/{groupe}/paiements/demandes', [PaiementController::class, 'demandes']);
     Route::post('/groupes/{groupe}/paiements/{paiement}/valider', [PaiementController::class, 'validerDemande']);
     Route::post('/groupes/{groupe}/paiements/{paiement}/refuser', [PaiementController::class, 'refuserDemande']);
+    Route::get('/groupes/{groupe}/paiements/{paiement}/preuve', [PaiementController::class, 'preuveImage']);
 
     // Caisse
     Route::get('/groupes/{groupe}/caisse', [CaisseController::class, 'show']);

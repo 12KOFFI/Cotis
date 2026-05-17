@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   Wallet, TrendingUp, Users, UserPlus, AlertTriangle, CheckCircle2,
   Clock, Plus, FileDown, QrCode, ArrowUpRight, Download, Link2, Send,
-  ImageUp, X, Eye,
+  ImageUp, X, Eye, Trash2, BellRing
 } from "lucide-react";
 import AppShell from "../../../components/AppShell";
 import { api, fcfa, formatMoney, API_BASE, auth } from "../../../lib/api";
@@ -22,7 +22,9 @@ export default function ManagerDashboard() {
   const [payOpen, setPayOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [demandesOpen, setDemandesOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [maCotisation, setMaCotisation] = useState(null);
+  const [managerPayOpen, setManagerPayOpen] = useState(false);
 
   const [tarifsOpen, setTarifsOpen] = useState(false);
 
@@ -78,6 +80,39 @@ export default function ManagerDashboard() {
             </div>
           </div>
 
+          {/* Alertes de Confirmation */}
+          {dash.nb_demandes > 0 && dash.demandes_en_attente && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="mt-2 rounded-2xl bg-amber-50 p-4 border border-amber-200">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-600"><BellRing className="h-5 w-5"/></span>
+                <div>
+                  <p className="text-sm font-bold text-amber-800">
+                    {dash.nb_demandes} demande{dash.nb_demandes > 1 ? "s" : ""} de paiement en attente
+                  </p>
+                  <p className="text-xs text-amber-600">Vérifiez les reçus soumis par vos membres.</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {dash.demandes_en_attente.slice(0, 3).map((d) => (
+                  <div key={d.id} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-amber-100">
+                    <div>
+                      <p className="text-sm font-bold text-wave-900">{d.membre?.prenom} {d.membre?.nom}</p>
+                      <p className="text-xs text-wave-500">{fcfa(d.montant)} • {new Date(d.date_paiement).toLocaleDateString("fr-FR")}</p>
+                    </div>
+                    <button onClick={() => setDemandesOpen(true)} className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-200">
+                      Examiner
+                    </button>
+                  </div>
+                ))}
+                {dash.nb_demandes > 3 && (
+                  <button onClick={() => setDemandesOpen(true)} className="w-full rounded-xl bg-amber-100/50 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100">
+                    Voir les {dash.nb_demandes - 3} autres demandes
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* Ma cotisation (gestionnaire aussi membre) */}
           {maCotisation && (
             <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="mt-4 rounded-2xl bg-white p-4 shadow-soft ring-1 ring-wave-100">
@@ -95,9 +130,9 @@ export default function ManagerDashboard() {
                   </div>
                 </div>
                 {maCotisation.reste_a_payer > 0 && (
-                  <Link href={`/app/m/${id}`} className="rounded-xl bg-brand-50 px-4 py-2.5 text-xs font-bold text-brand-600 transition hover:bg-brand-100 whitespace-nowrap">
+                  <button onClick={() => setManagerPayOpen(true)} className="rounded-xl bg-brand-50 px-4 py-2.5 text-xs font-bold text-brand-600 transition hover:bg-brand-100 whitespace-nowrap">
                     Confirmer le paiement
-                  </Link>
+                  </button>
                 )}
               </div>
             </motion.div>
@@ -115,6 +150,10 @@ export default function ManagerDashboard() {
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-wave-50 text-wave-700"><UserPlus className="h-6 w-6"/></span>
                 <div><p className="text-sm font-bold">Inviter</p><p className="text-xs text-wave-500">Lien ou SMS</p></div>
               </button>
+              <button onClick={()=>router.push(`/app/g/${id}/membres?action=add`)} className="card shrink-0 w-[140px] snap-center sm:w-auto flex flex-col items-center gap-2 py-4 text-center transition hover:-translate-y-0.5">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-50 text-brand-600"><Users className="h-6 w-6"/></span>
+                <div><p className="text-sm font-bold">Ajouter</p><p className="text-xs text-wave-500">Un membre</p></div>
+              </button>
               <button onClick={()=>setTarifsOpen(true)} className="card shrink-0 w-[140px] snap-center sm:w-auto flex flex-col items-center gap-2 py-4 text-center transition hover:-translate-y-0.5">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-600"><Wallet className="h-6 w-6"/></span>
                 <div><p className="text-sm font-bold">Tarifs</p><p className="text-xs text-wave-500">Cotisation</p></div>
@@ -127,6 +166,12 @@ export default function ManagerDashboard() {
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-wave-50 text-wave-700"><Download className="h-6 w-6"/></span>
                 <div><p className="text-sm font-bold">Export</p><p className="text-xs text-wave-500">CSV complet</p></div>
               </button>
+              {!dash.has_payments && (
+                <button onClick={()=>setDeleteOpen(true)} className="card shrink-0 w-[140px] snap-center sm:w-auto flex flex-col items-center gap-2 py-4 text-center transition hover:-translate-y-0.5 border border-red-100 bg-red-50/30">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-red-100 text-red-600"><Trash2 className="h-6 w-6"/></span>
+                  <div><p className="text-sm font-bold text-red-700">Supprimer</p><p className="text-xs text-red-500">Ce groupe</p></div>
+                </button>
+              )}
               <button onClick={()=>setDemandesOpen(true)} className={`card shrink-0 w-[140px] snap-center sm:w-auto flex flex-col items-center gap-2 py-4 text-center transition hover:-translate-y-0.5 ${dash.nb_demandes > 0 ? 'ring-2 ring-amber-400' : ''}`}>
                 <span className={`grid h-12 w-12 place-items-center rounded-2xl ${dash.nb_demandes > 0 ? 'bg-amber-50 text-amber-600' : 'bg-wave-50 text-wave-700'}`}>
                   <ImageUp className="h-6 w-6"/>
@@ -241,6 +286,8 @@ export default function ManagerDashboard() {
       )}
 
       {payOpen && <PayModal groupeId={id} onClose={()=>{setPayOpen(false);loadAll();}}/>}
+      {managerPayOpen && <ManagerPayModal groupeId={id} membreId={maCotisation?.membre?.id} onClose={()=>{setManagerPayOpen(false);loadAll();}}/>}
+      {deleteOpen && <DeleteGroupModal groupeId={id} groupeName={groupe?.nom} onClose={()=>setDeleteOpen(false)} />}
       {inviteOpen && <InviteModal groupeId={id} onClose={()=>{setInviteOpen(false);loadAll();}}/>}
       {tarifsOpen && <TarifsModal groupe={groupe} onClose={()=>{setTarifsOpen(false);loadAll();}}/>}
       {demandesOpen && <DemandesModal groupeId={id} onClose={()=>{setDemandesOpen(false);loadAll();}}/>}
@@ -251,9 +298,9 @@ export default function ManagerDashboard() {
 function TarifsModal({ groupe, onClose }) {
   const [f, setF] = useState({ 
     devise: groupe.devise || "FCFA",
-    montant_standard: groupe.montant_standard || 0, 
+    montant_standard: groupe.montant_standard || "", 
     adhesion_active: groupe.adhesion_active || false, 
-    adhesion_montant: groupe.adhesion_montant || 0 
+    adhesion_montant: groupe.adhesion_montant || "" 
   });
   const [saving, setSaving] = useState(false);
 
@@ -289,7 +336,7 @@ function TarifsModal({ groupe, onClose }) {
         </div>
         <div>
           <label className="label">Montant de la cotisation ({f.devise})</label>
-          <input type="number" min="0" className="input text-lg font-bold" value={f.montant_standard} onChange={(e)=>setF({...f, montant_standard: parseInt(e.target.value) || 0})} />
+          <input type="number" min="0" className="input text-lg font-bold" placeholder="Entrer un montant" value={f.montant_standard} onChange={(e)=>setF({...f, montant_standard: e.target.value?parseInt(e.target.value):""})} />
           <p className="text-xs text-wave-500 mt-1">Ce montant s'appliquera par défaut à chaque période.</p>
         </div>
         <div className="pt-2 border-t border-wave-100">
@@ -300,7 +347,7 @@ function TarifsModal({ groupe, onClose }) {
           {f.adhesion_active && (
             <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:"auto"}}>
               <label className="label mt-2">Montant de l'adhésion ({f.devise})</label>
-              <input type="number" min="0" className="input text-lg font-bold" value={f.adhesion_montant} onChange={(e)=>setF({...f, adhesion_montant: parseInt(e.target.value) || 0})} />
+              <input type="number" min="0" className="input text-lg font-bold" placeholder="Entrer un montant" value={f.adhesion_montant} onChange={(e)=>setF({...f, adhesion_montant: e.target.value?parseInt(e.target.value):""})} />
             </motion.div>
           )}
         </div>
@@ -335,7 +382,7 @@ function KPI({ Icon, label, value, tone, progress }) {
 function PayModal({ groupeId, onClose }) {
   const [membres, setMembres] = useState([]);
   const [f, setF] = useState({
-    membre_id: "", type: "cotisation", montant: 0, mode: "cash",
+    membre_id: "", type: "cotisation", montant: "", mode: "cash",
     date_paiement: new Date().toISOString().slice(0,10), note: "",
   });
   const [err, setErr] = useState("");
@@ -393,7 +440,7 @@ function PayModal({ groupeId, onClose }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Montant (FCFA)</label>
-              <input type="number" min="1" className="input" value={f.montant} onChange={(e)=>setF({...f,montant:parseInt(e.target.value)||0})}/>
+              <input type="number" min="1" className="input" placeholder="Entrer un montant" value={f.montant} onChange={(e)=>setF({...f,montant:e.target.value?parseInt(e.target.value):""})}/>
             </div>
             <div>
               <label className="label">Date</label>
@@ -551,10 +598,28 @@ function DemandesModal({ groupeId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
   const [motif, setMotif] = useState("");
   const [rejectId, setRejectId] = useState(null);
 
-  const STORAGE_URL = API_BASE.replace("/api", "/storage/");
+  async function openPreuve(paiementId) {
+    setImageLoading(true);
+    try {
+      const response = await api.get(`/groupes/${groupeId}/paiements/${paiementId}/preuve`, {
+        responseType: "blob",
+      });
+      const blobUrl = URL.createObjectURL(response.data);
+      setImagePreview(blobUrl);
+    } catch (e) {
+      alert("Impossible de charger la preuve.");
+    }
+    setImageLoading(false);
+  }
+
+  function closePreview() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+  }
 
   async function load() {
     setLoading(true);
@@ -623,9 +688,14 @@ function DemandesModal({ groupeId, onClose }) {
                     <p className="font-bold text-wave-900">{d.membre?.prenom} {d.membre?.nom}</p>
                     <p className="text-xs text-wave-500">{fmtDateGestionnaire(d.date_paiement)} • {fcfa(d.montant)}</p>
                     <p className="text-xs text-wave-400 mt-0.5">Il y a {timeAgo(d.created_at)}</p>
-                    {d.mode && OPERATEURS_MAP[d.mode] && (
-                      <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${OPERATEURS_MAP[d.mode].cls}`}>{OPERATEURS_MAP[d.mode].nom}</span>
-                    )}
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {d.mode && OPERATEURS_MAP[d.mode] && (
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${OPERATEURS_MAP[d.mode].cls}`}>{OPERATEURS_MAP[d.mode].nom}</span>
+                      )}
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${d.type === "adhesion" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
+                        {d.type === "adhesion" ? "Frais d'adhésion" : d.type === "cotisation" ? "Cotisation" : d.type}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => doValider(d.id)} disabled={actionLoading === d.id} className="rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600 disabled:opacity-50">
@@ -637,8 +707,8 @@ function DemandesModal({ groupeId, onClose }) {
                   </div>
                 </div>
                 {d.preuve_path && (
-                  <button onClick={() => setImagePreview(STORAGE_URL + d.preuve_path)} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-wave-700 transition hover:bg-brand-50 border border-wave-200 w-full">
-                    <Eye className="h-4 w-4" /> Voir la preuve
+                  <button onClick={() => openPreuve(d.id)} disabled={imageLoading} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-wave-700 transition hover:bg-brand-50 border border-wave-200 w-full disabled:opacity-50">
+                    <Eye className="h-4 w-4" /> {imageLoading ? "Chargement..." : "Voir la preuve"}
                   </button>
                 )}
                 {rejectId === d.id && (
@@ -659,10 +729,10 @@ function DemandesModal({ groupeId, onClose }) {
       </motion.div>
 
       {imagePreview && (
-        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4" onClick={() => setImagePreview(null)}>
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4" onClick={closePreview}>
           <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} className="relative max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
             <img src={imagePreview} alt="Preuve de paiement" className="w-full rounded-2xl shadow-2xl" />
-            <button onClick={() => setImagePreview(null)} className="absolute -top-3 -right-3 grid h-10 w-10 place-items-center rounded-full bg-white shadow-lg text-wave-700">
+            <button onClick={closePreview} className="absolute -top-3 -right-3 grid h-10 w-10 place-items-center rounded-full bg-white shadow-lg text-wave-700">
               <X className="h-5 w-5" />
             </button>
           </motion.div>
@@ -699,5 +769,112 @@ function Modal({ title, onClose, children }) {
         {children}
       </motion.div>
     </div>
+  );
+}
+
+function DeleteGroupModal({ groupeId, groupeName, onClose }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleDelete() {
+    setLoading(true);
+    setErr("");
+    try {
+      await api.delete(`/groupes/${groupeId}`);
+      router.push("/app");
+    } catch (e) {
+      setErr(e.response?.data?.message || "Erreur lors de la suppression.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal title="Supprimer le groupe" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700 font-semibold border border-red-100">
+          <p>Êtes-vous sûr de vouloir supprimer le groupe <strong>{groupeName}</strong> ?</p>
+          <p className="mt-2 text-xs font-normal">Cette action est définitive et irréversible. Elle ne peut être effectuée que si aucun paiement n'a été enregistré.</p>
+        </div>
+        {err && <motion.p initial={{opacity:0,y:-5}} animate={{opacity:1,y:0}} className="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-700">{err}</motion.p>}
+        <div className="flex gap-3">
+          <button onClick={onClose} className="btn-ghost flex-1 !py-3">Annuler</button>
+          <button onClick={handleDelete} disabled={loading} className="btn-primary flex-1 !py-3 !bg-red-500 hover:!bg-red-600 text-white border-0">
+            {loading ? "Suppression..." : "Supprimer"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ManagerPayModal({ groupeId, membreId, onClose }) {
+  const [f, setF] = useState({
+    membre_id: membreId || "", type: "cotisation", montant: "", mode: "cash",
+    date_paiement: new Date().toISOString().slice(0,10), note: "",
+  });
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  async function submit(){
+    setErr(""); setLoading(true);
+    try {
+      await api.post(`/groupes/${groupeId}/paiements`, f);
+      setSuccess(true);
+      setTimeout(()=>onClose(), 1200);
+    } catch(e){ setErr(e.response?.data?.message || "Erreur"); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <Modal title="Confirmer mon paiement" onClose={onClose}>
+      {success ? (
+        <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} className="flex flex-col items-center gap-3 py-6">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-brand-600"><CheckCircle2 className="h-7 w-7"/></span>
+          <p className="font-display text-lg font-bold">Paiement enregistré</p>
+        </motion.div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Type</label>
+              <select className="input" value={f.type} onChange={(e)=>setF({...f,type:e.target.value})}>
+                <option value="cotisation">Cotisation</option>
+                <option value="adhesion">Adhésion</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Mode</label>
+              <select className="input" value={f.mode} onChange={(e)=>setF({...f,mode:e.target.value})}>
+                <option value="cash">Cash</option>
+                <option value="wave">Mobile Money</option>
+                <option value="virement">Virement</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Montant (FCFA)</label>
+              <input type="number" min="1" className="input" placeholder="Entrer un montant" value={f.montant} onChange={(e)=>setF({...f,montant:e.target.value?parseInt(e.target.value):""})}/>
+            </div>
+            <div>
+              <label className="label">Date</label>
+              <input type="date" className="input" value={f.date_paiement} onChange={(e)=>setF({...f,date_paiement:e.target.value})}/>
+            </div>
+          </div>
+          <div>
+            <label className="label">Note (optionnel)</label>
+            <input className="input" value={f.note} onChange={(e)=>setF({...f,note:e.target.value})}/>
+          </div>
+          {err && <motion.p initial={{opacity:0,y:-5}} animate={{opacity:1,y:0}} className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{err}</motion.p>}
+          <button onClick={submit} disabled={loading || !f.montant} className="btn-primary w-full !py-3">
+            {loading?"Enregistrement...":"Enregistrer le paiement"}
+          </button>
+        </div>
+      )}
+    </Modal>
   );
 }

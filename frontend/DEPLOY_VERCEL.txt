@@ -1,0 +1,61 @@
+Instructions de déploiement — Frontend (Next.js) → Vercel
+
+But : déployer le dossier `frontend` sur Vercel rapidement et proprement.
+
+Prérequis
+- Compte Vercel (https://vercel.com) connecté à votre dépôt Git (GitHub/GitLab/Bitbucket).
+- Le code du frontend se trouve dans le sous-dossier `frontend` du repo.
+- Variables d'environnement nécessaires : `NEXT_PUBLIC_API_URL` (URL de l'API backend, ex: https://api.votre-domaine.com/api).
+
+Étapes (méthode recommandée via l'interface Vercel)
+1. Sur Vercel, cliquez sur "New Project" → "Import Git Repository".
+2. Choisissez votre repo et, lors de la configuration du projet :
+   - Root Directory : `frontend`
+   - Framework Preset : sélectionnez "Next.js" (Vercel devrait le détecter automatiquement).
+   - Build Command : `npm run build` (par défaut pour Next.js)
+   - Install Command : `npm install` (par défaut)
+   - Output Directory : laisser vide (Vercel gère Next.js automatiquement)
+3. Dans la section "Environment Variables" ajoutez au minimum :
+   - `NEXT_PUBLIC_API_URL` = l'URL de votre API (ex: `https://api.votre-domaine.com/api`)
+   - (Optionnel) toute autre `NEXT_PUBLIC_*` ou variable client nécessaire.
+4. Lancer le déploiement via "Deploy". Vercel va installer, builder et déployer automatiquement.
+
+Déploiement via CLI (optionnel)
+- Installer/connexion :
+  ```bash
+  npm i -g vercel
+  vercel login
+  ```
+- Déployer (dans `frontend` ou en passant `--cwd`):
+  ```bash
+  cd frontend
+  vercel --prod
+  ```
+- La première fois, `vercel` posera quelques questions (projet, scope, root). Indiquez `frontend` si demandé.
+
+Bonnes pratiques & remarques spécifiques à ce projet
+- Le frontend lit l'API depuis `process.env.NEXT_PUBLIC_API_URL` (voir `frontend/app/lib/api.js`). Assurez-vous qu'elle pointe vers votre backend de production.
+- Si votre backend est sur un mutualisé ou cPanel, mettez dans `backend/.env.production` la variable `FRONTEND_URL` = l'URL fournie par Vercel (ex: https://votre-app.vercel.app).
+- Le backend a déjà une règle CORS qui autorise les sous-domaines Vercel (`/^https:\/\/.*\.vercel\.app$/`). Si vous utilisez un domaine personnalisé, ajoutez-le aux origines autorisées ou configurez `FRONTEND_URL` correctement.
+- Node/version : si vous voulez forcer une version Node, ajoutez `engines` dans `frontend/package.json` ou configurez la valeur dans les settings Vercel.
+
+Scripts utiles (depuis le dossier `frontend`)
+- Dev local : `npm run dev`
+- Build : `npm run build`
+- Start : `npm run start`
+
+Vérifications post-déploiement
+- Ouvrez l'URL fournie par Vercel et vérifiez que l'app se charge.
+- Testez une requête API (ex: connexion / affichage d'une page) pour confirmer que `NEXT_PUBLIC_API_URL` est correcte.
+- Si vous rencontrez des erreurs 401/CSRF, vérifiez la configuration CORS du backend et la variable `SANCTUM_STATEFUL_DOMAINS` si vous utilisez Laravel Sanctum.
+
+Dépannage rapide
+- Build échoue : consultez les logs Vercel (Build Logs) pour l'erreur exacte.
+- Problèmes d'assets/images : Vercel optimise automatiquement les images Next.js; vérifiez `next.config.mjs` si vous utilisez des domaines externes.
+
+Si vous voulez, je peux :
+- Préparer un petit `vercel.json` et `README` prêts à l'emploi.
+- Générer la liste complète des variables d'environnement à copier dans Vercel (en scannant le code).
+
+---
+Fichier généré automatiquement par assistance. Félicitations — prêt à déployer !

@@ -31,10 +31,10 @@ export default function NewGroupe() {
     type: "tontine",
     description: "",
     adhesion_active: false,
-    adhesion_montant: 0,
+    adhesion_montant: "",
     frequence: "mensuelle",
     dates_autres: [],
-    montant_standard: 10000,
+    montant_standard: "",
     montant_personnalisable: false,
     date_debut: new Date().toISOString().slice(0, 10),
     wave_numero: "",
@@ -109,7 +109,7 @@ export default function NewGroupe() {
             {f.adhesion_active && (
               <div>
                 <label className="label">Montant d'adhésion (FCFA)</label>
-                <input type="number" min="0" className="input" value={f.adhesion_montant} onChange={(e)=>upd("adhesion_montant",parseInt(e.target.value)||0)}/>
+                <input type="number" min="0" className="input" placeholder="Entrer un montant" value={f.adhesion_montant} onChange={(e)=>upd("adhesion_montant",e.target.value?parseInt(e.target.value):"")}/>
               </div>
             )}
           </motion.div>
@@ -146,7 +146,7 @@ export default function NewGroupe() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Montant standard (FCFA)</label>
-                <input type="number" min="0" className="input" value={f.montant_standard} onChange={(e)=>upd("montant_standard",parseInt(e.target.value)||0)}/>
+                <input type="number" min="0" className="input" placeholder="Entrer un montant" value={f.montant_standard} onChange={(e)=>upd("montant_standard",e.target.value?parseInt(e.target.value):"")}/>
               </div>
               <div>
                 <label className="label">Date de début</label>
@@ -171,8 +171,8 @@ export default function NewGroupe() {
         {step === 3 && (
           <motion.div key={3} initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} className="card space-y-5">
             <div>
-              <p className="text-sm font-semibold">Configurer Wave (optionnel)</p>
-              <p className="mt-1 text-xs text-wave-600">Les membres pourront payer via Wave vers votre numéro.</p>
+              <p className="text-sm font-semibold">Informations de paiement Mobile Money (optionnel)</p>
+              <p className="mt-1 text-xs text-wave-600">Fournissez le numéro sur lequel les membres devront effectuer leurs paiements. Ils confirmeront ensuite le paiement sur l'application.</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
@@ -183,7 +183,7 @@ export default function NewGroupe() {
                 </select>
               </div>
               <div className="col-span-2">
-                <label className="label">Numéro Wave</label>
+                <label className="label">Numéro de réception</label>
                 <input className="input" value={f.wave_numero} onChange={(e)=>upd("wave_numero",e.target.value)} placeholder="+225 ..."/>
               </div>
             </div>

@@ -46,10 +46,11 @@ class DashboardController extends Controller
 
         $dernieresTx = $groupe->paiements()->with('membre')->latest('date_paiement')->limit(5)->get();
         $invitationsEnAttente = $groupe->invitations()->where('statut', 'envoyee')->count();
-        $nbDemandes = $groupe->paiements()->where('statut', 'en_attente')->whereNull('enregistre_par')->count();
+        $demandesEnAttente = $groupe->paiements()->where('statut', 'en_attente')->whereNull('enregistre_par')->with('membre')->latest('created_at')->get();
 
         return response()->json([
-            'nb_demandes' => $nbDemandes,
+            'nb_demandes' => $demandesEnAttente->count(),
+            'demandes_en_attente' => $demandesEnAttente,
             'periode' => $periode,
             'total_attendu' => $totalAttendu,
             'total_recu' => $totalRecu,
@@ -62,6 +63,7 @@ class DashboardController extends Controller
             'invitations_en_attente' => $invitationsEnAttente,
             'solde_caisse' => $groupe->caisse->solde ?? 0,
             'dernieres_transactions' => $dernieresTx,
+            'has_payments' => $groupe->paiements()->exists(),
         ]);
     }
 
@@ -70,6 +72,20 @@ class DashboardController extends Controller
         $u = $request->user();
         $membre = $groupe->membres()->where('user_id', $u->id)->with('adhesion', 'credits')->first();
         abort_unless($membre, 403);
+
+        // Auto-create adhesion record for members who don't have one yet
+        // so the frontend always receives the adhesion status
+        if ($groupe->adhesion_active && $groupe->adhesion_montant > 0 && !$membre->adhesion) {
+            \App\Models\AdhesionFrais::create([
+                'groupe_id' => $groupe->id,
+                'membre_id' => $membre->id,
+                'montant_du' => $groupe->adhesion_montant,
+                'montant_paye' => 0,
+                'statut' => 'non_paye',
+            ]);
+            $membre->load('adhesion'); // reload the relation
+        }
+
         $groupe->ensurePeriodsUpToDate();
         $periode = $groupe->periodes()->latest('date_debut')->first();
         $du = $membre->montant_perso ?? $groupe->montant_standard;

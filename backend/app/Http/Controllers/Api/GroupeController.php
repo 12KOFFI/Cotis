@@ -107,6 +107,21 @@ class GroupeController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, Groupe $groupe)
+    {
+        $this->authorizeGroupe($request, $groupe);
+
+        $hasPaiements = $groupe->paiements()->exists();
+        if ($hasPaiements) {
+            return response()->json([
+                'message' => 'Impossible de supprimer ce groupe car des paiements ont déjà été effectués.'
+            ], 400);
+        }
+
+        $groupe->delete();
+        return response()->json(['message' => 'Groupe supprimé avec succès.']);
+    }
+
     protected function authorizeGroupe(Request $request, Groupe $groupe): void
     {
         abort_unless($groupe->gestionnaire_id === $request->user()->id || $request->user()->role === 'super_admin', 403, 'Accès refusé');

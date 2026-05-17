@@ -49,8 +49,8 @@ export default function AppShell({ title = "CotisPro", back, children, role = "g
       ];
 
   return (
-    <div className="min-h-screen bg-wave-50/40 pb-20">
-      <header className="sticky top-0 z-40 border-b border-wave-100 bg-white/90 backdrop-blur-xl">
+    <div className="min-h-screen bg-wave-50/40 pb-20 print:bg-white print:pb-0">
+      <header className="sticky top-0 z-40 border-b border-wave-100 bg-white/90 backdrop-blur-xl print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-3">
             {back ? (
@@ -58,7 +58,7 @@ export default function AppShell({ title = "CotisPro", back, children, role = "g
                 <ArrowLeft className="h-4 w-4" />
               </button>
             ) : (
-              <Link href="/app" className="flex items-center gap-2">
+              <Link href={userRole === "membre" && groupeId ? `/app/m/${groupeId}` : userRole === "super_admin" ? "/app/admin" : "/app"} className="flex items-center gap-2">
                 <span className="grid h-9 w-9 place-items-center rounded-xl wave-bg text-white shadow-soft">
                   <Wallet className="h-5 w-5" />
                 </span>
@@ -84,7 +84,7 @@ export default function AppShell({ title = "CotisPro", back, children, role = "g
 
       <div className="mx-auto max-w-6xl px-4 py-5">{children}</div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-wave-100 bg-white/95 backdrop-blur-xl safe-area-bottom">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-wave-100 bg-white/95 backdrop-blur-xl safe-area-bottom print:hidden">
         <div className="mx-auto flex max-w-6xl items-stretch justify-around">
           {nav.map(({ href, label, Icon, disabled }) => {
             const active = pathname === href;

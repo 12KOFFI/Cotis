@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Search, UserPlus, Star, Trash2, Edit3, ShieldCheck, QrCode } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import AppShell from "../../../../components/AppShell";
 import { api, fcfa } from "../../../../lib/api";
 
@@ -19,7 +20,8 @@ export default function MembresPage() {
   const [groupe, setGroupe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
+  const sp = useSearchParams();
+  const [addOpen, setAddOpen] = useState(sp?.get("action") === "add");
 
   async function loadAll() {
     const [m, g] = await Promise.all([

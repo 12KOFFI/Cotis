@@ -68,8 +68,35 @@ export default function MemberDashboard() {
   const s = STATUT[data.statut] || STATUT.a_jour;
   const pct = data.montant_du > 0 ? Math.min(100, Math.round((data.montant_verse/data.montant_du)*100)) : 100;
 
+  const needsAdhesion = data.adhesion && data.adhesion.statut !== "paye";
+  const adhesionReste = needsAdhesion ? (data.adhesion.montant_du - data.adhesion.montant_paye) : 0;
+
   return (
     <AppShell title={data.groupe.nom} role="membre" groupeId={id}>
+      {/* Adhesion block - shown FIRST and PROMINENTLY when adhesion is unpaid */}
+      {needsAdhesion && (
+        <motion.div initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} className="mb-4 rounded-2xl bg-red-50 p-4 border border-red-200 shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-red-500"/>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-700">Frais d'adhésion obligatoires</p>
+              <p className="mt-1 text-xs text-red-600">
+                Avant de pouvoir effectuer des cotisations, vous devez régler vos frais d'adhésion au groupe.
+              </p>
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-white p-3 border border-red-100">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">Montant dû</p>
+                  <p className="font-display text-xl font-extrabold text-red-700">{fcfa(adhesionReste)}</p>
+                </div>
+                <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 shadow-sm">
+                  Payer l'adhésion
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="overflow-hidden rounded-3xl wave-bg text-white shadow-soft">
         <div className="p-5 pb-4">
           <div className="flex items-center justify-between">
@@ -108,7 +135,8 @@ export default function MemberDashboard() {
             <p className="mt-1 text-[11px] text-white/50">{fcfa(data.montant_verse)} versés sur {fcfa(data.montant_du)}</p>
           </div>
         </div>
-        {data.reste_a_payer > 0 && (
+        {/* Show payment buttons only if no adhesion is due */}
+        {!needsAdhesion && data.reste_a_payer > 0 && (
           <div className="flex gap-2 border-t border-white/10 p-4">
             <button onClick={() => setConfirmOpen(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-bold text-wave-800 transition hover:bg-wave-50">
               <Wallet className="h-4 w-4"/> Confirmer le paiement
@@ -116,6 +144,12 @@ export default function MemberDashboard() {
             <Link href={`/app/m/${id}/paiements`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-2.5 text-sm font-semibold backdrop-blur transition hover:bg-white/25">
               <History className="h-4 w-4"/> Historique
             </Link>
+          </div>
+        )}
+        {/* If adhesion needed, show dimmed message instead of payment buttons */}
+        {needsAdhesion && (
+          <div className="border-t border-white/10 p-4">
+            <p className="text-center text-xs text-white/50">Cotisation bloquée — veuillez d'abord régler l'adhésion ci-dessus.</p>
           </div>
         )}
       </motion.div>
@@ -130,16 +164,6 @@ export default function MemberDashboard() {
                 {validationMontant ? fcfa(validationMontant) : ''} Confirmé par le gestionnaire.
               </p>
             </div>
-          </div>
-        </motion.div>
-      )}
-
-      {data.adhesion && data.adhesion.statut !== "paye" && (
-        <motion.div initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} transition={{delay:0.15}} className="mt-3 flex items-start gap-3 rounded-2xl bg-red-50 p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500"/>
-          <div>
-            <p className="text-sm font-semibold text-red-700">Droit d'adhésion en attente</p>
-            <p className="mt-0.5 text-xs text-red-600">Reste : <strong>{fcfa(data.adhesion.montant_du - data.adhesion.montant_paye)}</strong>. Vous ne pourrez pas payer de cotisation tant que l'adhésion n'est pas réglée.</p>
           </div>
         </motion.div>
       )}
@@ -174,7 +198,7 @@ export default function MemberDashboard() {
         </motion.div>
       )}
 
-      {confirmOpen && <ConfirmPayModal groupeId={id} groupe={data.groupe} montant={data.reste_a_payer} onClose={() => { setConfirmOpen(false); loadDashboard(); }} />}
+      {confirmOpen && <ConfirmPayModal groupeId={id} groupe={data.groupe} montant={data.reste_a_payer} adhesion={data.adhesion} onClose={() => { setConfirmOpen(false); loadDashboard(); }} />}
     </AppShell>
   );
 }
@@ -186,8 +210,10 @@ const OPERATEURS = [
   { id: "mtn", nom: "MTN Mobile Money", bg: "bg-yellow-50", border: "border-yellow-300", circle: "bg-yellow-500", activeBg: "bg-yellow-100" },
 ];
 
-function ConfirmPayModal({ groupeId, groupe, montant, onClose }) {
-  const [amount, setAmount] = useState(montant);
+function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
+  const needsAdhesion = adhesion && adhesion.statut !== "paye";
+  const defaultAmount = needsAdhesion ? (adhesion.montant_du - adhesion.montant_paye) : montant;
+  const [amount, setAmount] = useState(defaultAmount || "");
   const [mode, setMode] = useState("");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -224,6 +250,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, onClose }) {
       fd.append("montant", parseInt(amount));
       fd.append("mode", mode);
       fd.append("preuve", file);
+      fd.append("type", needsAdhesion ? "adhesion" : "cotisation");
       await api.post(`/groupes/${groupeId}/paiements/demande`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -273,7 +300,12 @@ function ConfirmPayModal({ groupeId, groupe, montant, onClose }) {
 
               <div>
                 <label className="label">Montant payé</label>
-                <input type="number" min="1" className="input text-lg font-bold" value={amount} onChange={(e) => setAmount(parseInt(e.target.value) || 0)} />
+                {needsAdhesion && (
+                  <p className="mb-2 text-xs font-bold text-red-600 bg-red-50 p-2 rounded-xl border border-red-100">
+                    Paiement obligatoire des frais d'adhésion ({fcfa(adhesion.montant_du - adhesion.montant_paye)}). Vous devez d'abord régler l'adhésion avant de payer les cotisations.
+                  </p>
+                )}
+                <input type="number" min="1" className="input text-lg font-bold" placeholder="Entrer un montant" value={amount} onChange={(e) => setAmount(e.target.value ? parseInt(e.target.value) : "")} />
               </div>
 
               <div>

@@ -9,7 +9,7 @@ return [
         'http://127.0.0.1:3000',
         'http://localhost:3001',
         'http://127.0.0.1:3001',
-        'http://192.168.1.20:3000',
+        'http://192.168.1.2:3000',
     ]),
     // Autorise tous les sous-domaines Vercel (previews)
     'allowed_origins_patterns' => [

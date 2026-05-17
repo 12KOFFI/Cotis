@@ -26,7 +26,8 @@ export default function MesPaiements() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
 
-  const STORAGE_URL = API_BASE.replace("/api", "/storage/");
+  const [preuveUrl, setPreuveUrl] = useState(null);
+  const [preuveLoading, setPreuveLoading] = useState(false);
 
   useEffect(()=>{
     api.get(`/groupes/${id}/mes-paiements`).then((r)=>{
@@ -159,9 +160,26 @@ export default function MesPaiements() {
                 {selected.preuve_path && (
                   <div>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-wave-400">Preuve de paiement</p>
-                    <div className="rounded-2xl overflow-hidden border-2 border-wave-200">
-                      <img src={STORAGE_URL + selected.preuve_path} alt="Reçu de paiement" className="w-full object-cover" />
-                    </div>
+                    {preuveUrl ? (
+                      <div className="rounded-2xl overflow-hidden border-2 border-wave-200">
+                        <img src={preuveUrl} alt="Reçu de paiement" className="w-full object-cover" />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          setPreuveLoading(true);
+                          try {
+                            const r = await api.get(`/groupes/${id}/paiements/${selected.id}/preuve`, { responseType: "blob" });
+                            setPreuveUrl(URL.createObjectURL(r.data));
+                          } catch { }
+                          setPreuveLoading(false);
+                        }}
+                        disabled={preuveLoading}
+                        className="flex items-center gap-2 rounded-xl bg-wave-50 px-3 py-2.5 text-xs font-semibold text-wave-700 transition hover:bg-brand-50 border border-wave-200 w-full disabled:opacity-50"
+                      >
+                        <Eye className="h-4 w-4" /> {preuveLoading ? "Chargement..." : "Voir la preuve"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
