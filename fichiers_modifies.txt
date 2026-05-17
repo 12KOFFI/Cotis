@@ -1,62 +1,19 @@
-frontend/app/app/g/[id]/membres/page.js
-- Ajout de la prise en charge du paramètre d'URL `?action=add` pour ouvrir automatiquement la modale d'ajout de membre.
+frontend/package.json
+- Installation de la dépendance `next-pwa` pour ajouter le support des services workers et du cache PWA.
 
-frontend/app/app/g/[id]/page.js
-- Ajout de la modale `ManagerPayModal` pour la confirmation de paiement du gestionnaire (sans champ de sélection de membre).
-- Ajout du bouton "Ajouter un membre" dans les actions rapides (redirige vers la page des membres avec `?action=add`).
-- Ajout du bouton "Supprimer" dans les actions rapides et de sa modale de confirmation `DeleteGroupModal`.
-- Suppression des zéros par défaut dans `PayModal`, `ManagerPayModal`, et `TarifsModal` pour y mettre un placeholder.
-- Ajout d'une bannière de notification claire pour les paiements en attente (Demandes) affichant le nom du membre et le montant.
-- Correction de l'affichage de la preuve de paiement : utilisation d'un fetch authentifié (blob) via un endpoint API dédié au lieu d'un lien direct vers `/storage/`.
-- Ajout d'un badge "Type de paiement" (Cotisation / Frais d'adhésion) dans la modale des demandes en attente.
-- Masquage du bouton "Supprimer" dans les actions rapides si le groupe contient des paiements (via `has_payments`).
+frontend/next.config.mjs
+- Import et configuration de `next-pwa` pour générer le service worker dans le dossier `public` en production.
 
-frontend/app/app/profil/page.js
-- Correction du téléchargement de la carte membre sur mobile en spécifiant le type MIME `application/pdf` et en gérant correctement le nettoyage du lien Blob.
-- Ajout de classes utilitaires CSS (print:hidden, print:m-0, etc.) pour masquer les informations de l'utilisateur lors de l'impression et n'imprimer que la carte.
+frontend/public/manifest.json (Nouveau fichier)
+- Création du manifest Web App avec les configurations de nom, de couleurs (theme_color, background_color), de mode d'affichage (`standalone`) et de l'URL de démarrage (`/`).
 
-frontend/app/components/AppShell.js
-- Ajout des classes d'impression (print:hidden) sur l'en-tête et la barre de navigation pour qu'ils n'apparaissent pas à l'impression.
-- Correction du lien du logo : redirige vers le dashboard membre (`/app/m/{id}`) pour les membres, `/app/admin` pour les admins, `/app` pour les gestionnaires. Corrige le flash de la page "Nouveau groupe" visible par les membres.
+frontend/public/icons/icon-192.png et icon-512.png (Nouveaux fichiers)
+- Création et ajout des icônes de l'application (tailles 192x192 et 512x512). Génération d'une version moderne, premium et vectorielle basée sur le fichier original `icon-00.png` fourni.
 
-frontend/app/components/MemberCard.js
-- Ajout des classes d'impression (print:hidden) sur les boutons d'action (Télécharger / Imprimer) pour ne pas les inclure dans le rendu papier ou PDF.
+frontend/app/layout.js
+- Mise à jour de l'objet `metadata` pour intégrer le `manifest.json`, les icônes Apple (appleWebApp), et les méta-tags pour la barre d'état.
+- Mise à jour de l'objet `viewport` pour inclure la `themeColor` correspondante à la PWA.
+- Import et inclusion globale du composant `PwaInstallPrompt` pour inviter les utilisateurs à installer l'application.
 
-backend/routes/api.php
-- Ajout de la route API `DELETE /groupes/{groupe}` pour la suppression de groupe.
-- Ajout de la route API `GET /groupes/{groupe}/paiements/{paiement}/preuve` pour servir les images de preuve.
-
-backend/app/Http/Controllers/Api/GroupeController.php
-- Ajout de la méthode `destroy` permettant la suppression d'un groupe uniquement si aucun paiement n'y est associé.
-
-frontend/app/app/groupes/new/page.js
-- Mise à jour du texte descriptif lors de la création d'un groupe (Étape 3) pour clarifier que le paiement Mobile Money s'effectue en dehors de l'application et que seule la confirmation de paiement se fait sur l'application.
-- Suppression des zéros par défaut dans les champs de montant.
-
-backend/app/Http/Controllers/Api/PaiementController.php
-- Mise à jour de `storeDemande` pour accepter le paramètre `type` et imposer le paiement des frais d'adhésion si ceux-ci sont requis et impayés.
-- Ajout de la méthode `preuveImage` pour servir les fichiers de preuve de paiement de manière authentifiée via l'API.
-
-backend/app/Http/Controllers/Api/DashboardController.php
-- Ajout du retour de la liste `demandes_en_attente` (les dernières demandes avec infos du membre) en plus du simple compteur, pour la nouvelle bannière de notification.
-- Création automatique de l'enregistrement `AdhesionFrais` lorsqu'un membre charge son dashboard et que le groupe a des frais d'adhésion actifs. Corrige le bug où `data.adhesion` était toujours `null` pour les nouveaux membres.
-- Ajout de la clé `has_payments` dans la réponse JSON du tableau de bord gestionnaire pour savoir si des paiements existent (utile pour masquer le bouton supprimer).
-
-frontend/app/app/m/[id]/page.js
-- Mise à jour de `ConfirmPayModal` pour vérifier les frais d'adhésion impayés, forcer le `type` à "adhesion", afficher un message explicatif en rouge et bloquer tout autre type de cotisation.
-- Suppression des zéros par défaut dans le champ montant pour y mettre un placeholder.
-- Bloc d'adhésion déplacé EN HAUT du dashboard membre (avant la carte de cotisation) avec bouton "Payer l'adhésion" intégré.
-- Boutons de cotisation masqués et message "Cotisation bloquée" affiché tant que l'adhésion n'est pas réglée.
-
-frontend/app/app/page.js
-- Suppression des zéros par défaut dans la modale d'édition de groupe.
-
-frontend/app/lib/api.js
-- Suppression de `STORAGE_BASE` (plus utilisé, remplacé par l'endpoint API authentifié pour les preuves).
-
-frontend/app/app/m/[id]/paiements/page.js
-- Remplacement de l'affichage direct de l'image de preuve (STORAGE_URL) par un fetch authentifié via l'endpoint API `/preuve` (compatible production).
-
-frontend/app/app/g/[id]/caisse/page.js
-- Remplacement de l'affichage direct de l'image de preuve (STORAGE_URL) par un fetch authentifié via l'endpoint API `/preuve` (compatible production).
-- Suppression du zéro par défaut dans le champ montant du décaissement.
+frontend/app/components/PwaInstallPrompt.js (Nouveau fichier)
+- Création d'un composant flottant affichant un message ("Installer CotisPro") qui intercepte l'événement `beforeinstallprompt` du navigateur pour proposer l'installation de la PWA sur les appareils compatibles. Il inclut également une gestion locale pour ne pas déranger l'utilisateur s'il refuse.
