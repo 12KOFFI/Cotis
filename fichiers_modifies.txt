@@ -12,3 +12,4 @@ frontend/app/register/page.js
 frontend/app/join/[token]/page.js
 frontend/app/app/g/[id]/page.js
 frontend/app/app/g/[id]/membres/page.js
+frontend/app/app/groupes/new/page.js

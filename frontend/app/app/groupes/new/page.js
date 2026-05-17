@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, Check, Plus, Calendar, Trash2 } from "lucide-react";
 import AppShell from "../../../components/AppShell";
+import PhoneInput from "../../../components/PhoneInput";
 import { api } from "../../../lib/api";
 
 const TYPES = [
@@ -178,18 +179,13 @@ export default function NewGroupe() {
               <p className="text-sm font-semibold">Informations de paiement Mobile Money (optionnel)</p>
               <p className="mt-1 text-xs text-wave-600">Fournissez le numéro sur lequel les membres devront effectuer leurs paiements. Ils confirmeront ensuite le paiement sur l'application.</p>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="label">Pays</label>
-                <select className="input" value={f.wave_pays} onChange={(e)=>upd("wave_pays",e.target.value)}>
-                  <option value="CI">Côte d'Ivoire</option>
-                  <option value="SN">Sénégal</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="label">Numéro de réception</label>
-                <input className="input" value={f.wave_numero} onChange={(e)=>upd("wave_numero",e.target.value)} placeholder="+225 ..."/>
-              </div>
+            <div>
+              <label className="label">Numéro de réception</label>
+              <PhoneInput 
+                value={f.wave_numero} 
+                onChange={(val)=>upd("wave_numero", val)} 
+                defaultCountry="CI"
+              />
             </div>
             <div className="rounded-2xl bg-wave-50/60 p-4 text-xs text-wave-700">
               <p className="font-semibold">Récapitulatif</p>
