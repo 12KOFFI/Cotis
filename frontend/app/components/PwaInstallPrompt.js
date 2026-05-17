@@ -8,6 +8,11 @@ export default function PwaInstallPrompt() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    // Register service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
     // Prevent the mini-infobar from appearing on mobile
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
