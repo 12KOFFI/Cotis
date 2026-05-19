@@ -1,15 +1,55 @@
-=== Fix: adhesion_montant cannot be null ===
+📦 PWA + LANDING PAGE — Récapitulatif complet
 
-backend/database/migrations/2026_05_01_225628_create_groupes_table.php
-backend/database/migrations/2026_05_17_192100_make_adhesion_montant_nullable_in_groupes.php (NOUVEAU)
-backend/app/Http/Controllers/Api/GroupeController.php
-frontend/app/app/groupes/new/page.js
+=== FICHIERS CRÉÉS ===
 
-=== Amélioration formulaire inscription: email suggestions + sélecteur pays téléphone ===
+frontend/app/components/pwa/usePwaInstall.ts
+  Hook : beforeinstallprompt, détection iOS, appinstalled, SW registration
+  Return : canInstall, isIOS, handleInstall, hasPrompt
 
-frontend/app/components/PhoneInput.js (NOUVEAU)
-frontend/app/register/page.js
-frontend/app/join/[token]/page.js
-frontend/app/app/g/[id]/page.js
-frontend/app/app/g/[id]/membres/page.js
-frontend/app/app/groupes/new/page.js
+frontend/app/components/pwa/IosInstallModal.tsx
+  Modale iOS : 3 étapes visuelles (Partager → Défiler → Sur l'écran d'accueil)
+
+frontend/app/components/pwa/InstallButton.tsx
+  Bouton inline, props className/large
+  Gère Android, iOS, fallback
+
+=== FICHIERS MODIFIÉS ===
+
+frontend/app/layout.js
+  Retrait PwaInstallPrompt et InstallButton du layout global
+
+frontend/app/components/Landing.js
+  Import de InstallButton
+  Section "Téléchargez l'application" ajoutée avant les features, avec id="install-app"
+    - Icône icon-512.png, InstallButton large, titre, description
+  Bouton flottant (Download) : icône Download, scroll vers #install-app au clic
+    - scrollIntoView({ behavior: "smooth" })
+    - visible après 500px de scroll (showTop)
+    - fixed bottom-6 right-6
+  Feature "Collecte Multi-canal" mise à jour :
+    Avant : "Encaissez via Wave, Orange Money ou cash..."
+    Après : "Wave, Orange Money, Moov Money, MTN, Cash. Paiement par les membres avec preuve, validation par le gestionnaire."
+  Retrait : Smartphone, ArrowUp, FloatingInstallIcon, showInstallFab
+
+frontend/app/components/PhoneMock.js
+  Animation apparition/disparition au scroll via useInView + AnimatePresence (framer-motion)
+  Apparaît : scale(0.7→1), opacity(0→1), y(60→0)
+  Disparaît : scale(1→0.7), opacity(1→0), y(0→-60)
+  Ref + margin -80px pour trigger au bon moment
+
+frontend/app/components/pwa/usePwaInstall.ts
+  canInstall : "checked && !isInstalled" (supprimé la dépendance deferredPrompt)
+  hasPrompt ajouté au return
+
+frontend/app/components/pwa/InstallButton.tsx
+  Passage en inline, props className/large, gestion fallback au clic
+
+=== FICHIERS CRÉÉS PUIS SUPPRIMÉS ===
+
+frontend/app/components/pwa/FloatingInstallIcon.tsx
+  FAB téléchargement — supprimé à la demande
+
+=== FICHIERS SUPPRIMÉS ===
+
+frontend/app/components/PwaInstallPrompt.js
+  Ancien popup automatique PWA

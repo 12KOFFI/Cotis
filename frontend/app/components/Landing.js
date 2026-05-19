@@ -1,12 +1,11 @@
 "use client";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Wallet,
   Users,
   ShieldCheck,
-  Smartphone,
   CreditCard,
   QrCode,
   BarChart3,
@@ -23,9 +22,11 @@ import {
   Send,
   PieChart,
   FileDown,
+  Download,
 } from "lucide-react";
 import Nav from "./Nav";
 import PhoneMock from "./PhoneMock";
+import InstallButton from "./pwa/InstallButton";
 
 const fadeUp = {
   initial: { opacity: 0, y: 40 },
@@ -47,6 +48,13 @@ export default function Landing() {
   });
   const blobY = useTransform(scrollYProgress, [0, 1], [0, 140]);
   const [openFaq, setOpenFaq] = useState(null);
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 500);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <main className="min-h-screen text-wave-900">
@@ -245,6 +253,33 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ─── INSTALL APP ─── */}
+      <section id="install-app" className="mx-auto max-w-7xl px-4 py-16 sm:py-24 sm:px-6">
+        <motion.div
+          {...fadeUp}
+          className="relative overflow-hidden rounded-[3rem] bg-wave-50 px-8 py-16 text-center shadow-inner"
+        >
+          <div aria-hidden className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-wave-100/50 blur-[100px]" />
+          <div aria-hidden className="absolute -left-20 bottom-0 h-80 w-80 rounded-full bg-wave-100/50 blur-[100px]" />
+
+          <div className="relative z-10 mx-auto max-w-2xl">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white shadow-lg shadow-wave-600/20 sm:h-20 sm:w-20">
+              <img src="/icons/icon-512.png" alt="CotisPro" className="h-10 w-10 sm:h-14 sm:w-14" />
+            </div>
+            <h2 className="mt-6 font-display text-3xl font-black leading-tight text-wave-900 sm:text-5xl">
+              Téléchargez l&apos;application
+            </h2>
+            <p className="mt-4 text-lg text-wave-600 sm:text-xl">
+              Accédez à CotisPro depuis votre écran d&apos;accueil, même sans
+              connexion Internet.
+            </p>
+            <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <InstallButton large />
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
       {/* ─── FEATURES ─── */}
       <section
         id="fonctionnalites"
@@ -268,7 +303,7 @@ export default function Landing() {
             {
               Icon: HandCoins,
               t: "Collecte Multi-canal",
-              d: "Encaissez via Wave, Orange Money ou cash. Imputation intelligente sur les dettes.",
+              d: "Wave, Orange Money, Moov Money, MTN, Cash. Paiement par les membres avec preuve, validation par le gestionnaire.",
               bg: "bg-emerald-50 text-emerald-600",
             },
             {
@@ -667,6 +702,18 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {showTop && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          onClick={() => document.getElementById("install-app")?.scrollIntoView({ behavior: "smooth" })}
+          className="fixed bottom-6 right-6 z-50 grid h-12 w-12 place-items-center rounded-2xl bg-wave-600 text-white shadow-lg shadow-wave-600/30 transition-all hover:bg-wave-700 active:scale-90"
+        >
+          <Download className="h-5 w-5" />
+        </motion.button>
+      )}
     </main>
   );
 }

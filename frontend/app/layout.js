@@ -1,6 +1,5 @@
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const display = Plus_Jakarta_Sans({
@@ -41,7 +40,6 @@ export default function RootLayout({ children }) {
     <html lang="fr" className={`${inter.variable} ${display.variable}`}>
       <body className="font-sans">
         {children}
-        <PwaInstallPrompt />
       </body>
     </html>
   );
