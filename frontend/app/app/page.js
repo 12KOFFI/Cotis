@@ -52,6 +52,14 @@ export default function AppHome() {
     }
   }
 
+  if (!user || loading) {
+    return (
+      <div className="grid min-h-[80vh] place-items-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-wave-200 border-t-wave-600"></div>
+      </div>
+    );
+  }
+
   return (
     <AppShell title="Mes groupes">
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="mb-4 relative overflow-hidden rounded-3xl bg-brand-50 p-5 sm:p-10 border border-brand-100/50 shadow-sm flex items-center justify-between min-h-[140px] sm:min-h-[180px]">

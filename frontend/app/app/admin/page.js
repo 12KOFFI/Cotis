@@ -12,7 +12,15 @@ export default function SuperAdmin() {
   const [loading, setLoading] = useState(true);
 
   useEffect(()=>{
-    api.get("/admin/overview").then((r)=>{ setData(r.data); setLoading(false); }).catch(()=>router.push("/app"));
+    api.get("/admin/overview").then((r)=>{ setData(r.data); setLoading(false); }).catch((e)=>{
+      if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+        router.push("/app");
+      } else {
+        console.error("Failed to load admin overview:", e);
+        // Ne pas rediriger, juste masquer le loading (ou afficher une erreur)
+        setLoading(false);
+      }
+    });
   }, [router]);
 
   return (
