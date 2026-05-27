@@ -97,9 +97,12 @@ export default function MesPaiements() {
                         <p className="text-[11px] font-medium text-wave-400 mt-0.5">{fmtDate(paiement.date_paiement)} · {paiement.mode}</p>
                       </div>
                     </div>
-                    <p className={`shrink-0 text-base font-extrabold ${paiement.statut==="reussi"?"text-emerald-600":"text-wave-500"}`}>
-                      +{fcfa(paiement.montant).replace(' FCFA', '')}
-                    </p>
+                    <div className="flex flex-col items-end">
+                      <p className={`shrink-0 text-base font-extrabold ${paiement.statut==="reussi"?"text-emerald-600":"text-wave-500"}`}>
+                        +{fcfa(Math.ceil((paiement.montant * 1.01 + 100) / 0.975)).replace(' FCFA', '')}
+                      </p>
+                      <p className="text-[10px] font-semibold text-wave-400 mt-0.5">Dont {fcfa(paiement.montant)} reçu</p>
+                    </div>
                   </motion.button>
                 );
               })}
@@ -130,14 +133,17 @@ export default function MesPaiements() {
                   <div className="flex items-center gap-3.5">
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-100 text-brand-600"><Wallet className="h-6 w-6"/></span>
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Montant</p>
-                      <p className="text-xl font-extrabold text-wave-900">{fcfa(selected.montant)}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Montant total payé</p>
+                      <p className="text-xl font-extrabold text-wave-900">{fcfa(Math.ceil((selected.montant * 1.01 + 100) / 0.975))}</p>
+                      <p className="text-[10px] font-semibold text-wave-500 mt-1">Le groupe a reçu : {fcfa(selected.montant)}</p>
                     </div>
                   </div>
-                  {selected.statut === "reussi" && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-600"><CheckCircle2 className="h-4 w-4" /> Réussi</span>}
-                  {selected.statut === "en_attente" && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-100 px-2.5 py-1 text-xs font-bold text-amber-600"><Clock className="h-4 w-4" /> En attente</span>}
-                  {selected.statut === "echoue" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-xs font-bold text-rose-600"><XCircle className="h-4 w-4" /> Échoué</span>}
-                  {selected.statut === "annule" && <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-500"><Ban className="h-4 w-4" /> Annulé</span>}
+                  <div className="flex flex-col gap-1 items-end">
+                    {selected.statut === "reussi" && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-600"><CheckCircle2 className="h-4 w-4" /> Réussi</span>}
+                    {selected.statut === "en_attente" && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-100 px-2.5 py-1 text-xs font-bold text-amber-600"><Clock className="h-4 w-4" /> En attente</span>}
+                    {selected.statut === "echoue" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-xs font-bold text-rose-600"><XCircle className="h-4 w-4" /> Échoué</span>}
+                    {selected.statut === "annule" && <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-500"><Ban className="h-4 w-4" /> Annulé</span>}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

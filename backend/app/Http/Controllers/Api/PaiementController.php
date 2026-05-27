@@ -83,11 +83,19 @@ class PaiementController extends Controller
                 : $this->resteCotisation($groupe, $membre);
         }
         
-        // Sécurité : Recalcul strict côté serveur pour éviter les manipulations de prix (Parameter Tampering)
-        $frais = (int) ceil(($montant * 0.035) + 100);
-        $montantEnvoye = $montant + $frais;
+        $montantEnvoye = (int) ceil(($montant * 1.01 + 100) / 0.975);
+        $frais = $montantEnvoye - $montant;
 
         abort_if($montant <= 0, 422, 'Aucun montant à payer.');
+
+        Log::info('GeniusPay: Initiation paiement', [
+            'montant_net'    => $montant,
+            'frais'          => $frais,
+            'montant_envoye' => $montantEnvoye,
+            'membre_id'      => $membre->id,
+            'groupe_id'      => $groupe->id,
+            'type'           => $data['type'],
+        ]);
 
         $apiKey    = config('services.geniuspay.key');
         $apiSecret = config('services.geniuspay.secret');
@@ -134,8 +142,14 @@ class PaiementController extends Controller
         $paymentData = $payload['data'] ?? [];
         $transactionId = $paymentData['id'] ?? $paymentData['reference'] ?? $payload['id'] ?? null;
 
+        Log::info('GeniusPay: Réponse API', [
+            'transaction_id' => $transactionId,
+            'checkout_url'   => $paymentData['checkout_url'] ?? $paymentData['payment_url'] ?? $payload['checkout_url'] ?? null,
+            'full_response'  => $payload,
+        ]);
+
         if ($transactionId) {
-            Paiement::create([
+            $paiement = new Paiement([
                 'groupe_id'      => $groupe->id,
                 'membre_id'      => $membre->id,
                 'periode_id'     => null,
@@ -148,12 +162,73 @@ class PaiementController extends Controller
                 'note'           => 'Paiement en ligne initié via GeniusPay',
                 'enregistre_par' => $currentUser->id,
             ]);
+
+            $fraisGeniusPay        = (int) round($montantEnvoye * 0.025 + 100);
+            $commissionPlateforme  = $montantEnvoye - $fraisGeniusPay - $montant;
+
+            $paiement->montant_membre         = $montant;
+            $paiement->frais_gateway          = $fraisGeniusPay;
+            $paiement->commission_plateforme  = $commissionPlateforme;
+            $paiement->save();
         }
 
         return response()->json([
             'checkout_url' => $paymentData['checkout_url'] ?? $paymentData['payment_url'] ?? $payload['checkout_url'] ?? null,
             'reference'    => $transactionId,
         ]);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Vérification manuelle d'un paiement en attente (gestionnaire)      */
+    /* ------------------------------------------------------------------ */
+
+    public function verifierPaiement(Request $request, Groupe $groupe, Paiement $paiement)
+    {
+        $this->authorizeGroupe($request, $groupe);
+        abort_unless($paiement->groupe_id === $groupe->id, 404);
+        abort_unless($paiement->statut === 'en_attente', 422, 'Ce paiement n\'est pas en attente.');
+        abort_unless($paiement->transaction_id, 422, 'Pas de référence de transaction.');
+
+        $apiKey    = config('services.geniuspay.key');
+        $apiSecret = config('services.geniuspay.secret');
+        $baseUrl   = config('services.geniuspay.base_url');
+
+        $response = Http::withHeaders([
+            'X-API-Key'    => $apiKey,
+            'X-API-Secret' => $apiSecret,
+            'Accept'       => 'application/json',
+        ])->get("{$baseUrl}/merchant/payments/{$paiement->transaction_id}");
+
+        if (!$response->successful()) {
+            Log::warning('GeniusPay: vérification échouée', ['body' => $response->body()]);
+            return response()->json(['message' => 'Impossible de vérifier le paiement auprès de GeniusPay.'], 502);
+        }
+
+        $payload = $response->json();
+        $status  = $payload['data']['status'] ?? $payload['status'] ?? 'unknown';
+
+        Log::info('GeniusPay: Vérification manuelle', [
+            'transaction_id' => $paiement->transaction_id,
+            'status_distant' => $status,
+            'full_response'  => $payload,
+        ]);
+
+        if (in_array($status, ['completed', 'success', 'paid'])) {
+            // Paiement confirmé → traiter comme un webhook success
+            $metadata = $payload['data']['metadata'] ?? [];
+            $montant  = (int) ($metadata['montant'] ?? $paiement->montant);
+
+            $result = $this->enregistrerPaiementConfirme($groupe, $paiement->membre, $paiement->type, $montant, $paiement->transaction_id);
+
+            return response()->json(['message' => 'Paiement confirmé avec succès.', 'status' => 'reussi', 'result' => $result]);
+        }
+
+        if (in_array($status, ['failed', 'expired', 'cancelled'])) {
+            $paiement->update(['statut' => $status === 'cancelled' ? 'annule' : 'echoue']);
+            return response()->json(['message' => 'Le paiement a échoué ou a été annulé.', 'status' => $paiement->statut]);
+        }
+
+        return response()->json(['message' => 'Le paiement est toujours en cours de traitement.', 'status' => $status]);
     }
 
     /* ------------------------------------------------------------------ */

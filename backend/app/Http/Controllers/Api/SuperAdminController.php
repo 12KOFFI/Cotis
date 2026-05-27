@@ -25,9 +25,18 @@ class SuperAdminController extends Controller
             'membres' => User::where('role', 'membre')->count(),
             'groupes' => Groupe::count(),
             'paiements_total' => (int) Paiement::where('statut', 'reussi')->sum('montant'),
+            'commissions_total' => (int) Paiement::where('statut', 'reussi')->sum('commission_plateforme'),
+            'frais_gateway_total' => (int) Paiement::where('statut', 'reussi')->sum('frais_gateway'),
             'invitations_envoyees' => Invitation::count(),
             'derniers_groupes' => Groupe::latest()->limit(10)->get(['id', 'nom', 'type', 'plan', 'created_at']),
             'derniers_users' => User::latest()->limit(10)->get(['id', 'name', 'email', 'role', 'created_at']),
+            'derniers_paiements' => Paiement::with(['groupe:id,nom', 'membre:id,nom,prenom'])
+                                        ->latest()
+                                        ->limit(15)
+                                        ->get([
+                                            'id', 'groupe_id', 'membre_id', 'montant', 'montant_membre', 
+                                            'commission_plateforme', 'frais_gateway', 'statut', 'mode', 'date_paiement'
+                                        ]),
         ]);
     }
 

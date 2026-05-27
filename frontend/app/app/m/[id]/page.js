@@ -188,10 +188,13 @@ export default function MemberDashboard() {
 
 function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
   const needsAdhesion = adhesion && adhesion.statut !== "paye";
+  const calcEnvoye = (M) => Math.ceil((M * 1.01 + 100) / 0.975);
+  const calcRecoit = (X) => Math.floor((X * 0.975 - 100) / 1.01);
+
   const defaultReceived = needsAdhesion ? (adhesion.montant_du - adhesion.montant_paye) : montant;
   
   const [amountReceived, setAmountReceived] = useState(defaultReceived || "");
-  const [amountSent, setAmountSent] = useState(defaultReceived ? Math.ceil(defaultReceived * 1.035 + 100) : "");
+  const [amountSent, setAmountSent] = useState(defaultReceived ? calcEnvoye(defaultReceived) : "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -199,7 +202,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
     const received = parseInt(val);
     if (!isNaN(received)) {
       setAmountReceived(received);
-      setAmountSent(Math.ceil(received * 1.035 + 100));
+      setAmountSent(calcEnvoye(received));
     } else {
       setAmountReceived("");
       setAmountSent("");
@@ -210,7 +213,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
     const sent = parseInt(val);
     if (!isNaN(sent)) {
       setAmountSent(sent);
-      const received = Math.max(0, Math.floor((sent - 100) / 1.035));
+      const received = Math.max(0, calcRecoit(sent));
       setAmountReceived(received);
     } else {
       setAmountSent("");

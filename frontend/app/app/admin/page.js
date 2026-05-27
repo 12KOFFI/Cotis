@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Users, Building2, Wallet, Send } from "lucide-react";
+import { Users, Building2, Wallet, Send, BadgePercent } from "lucide-react";
 import AppShell from "../../components/AppShell";
 import { api, auth, fcfa } from "../../lib/api";
 
@@ -28,11 +28,61 @@ export default function SuperAdmin() {
         </div>
       ) : data && (
         <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.3}}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <KPI Icon={Users} label="Utilisateurs" value={data.users} sub={`${data.gestionnaires} gest. · ${data.membres} mbr.`} tone="dark"/>
             <KPI Icon={Building2} label="Groupes" value={data.groupes}/>
             <KPI Icon={Wallet} label="Volume encaissé" value={fcfa(data.paiements_total)}/>
+            <KPI Icon={BadgePercent} label="Commissions Nettes" value={fcfa(data.commissions_total || 0)} sub={`+ ${fcfa(data.frais_gateway_total || 0)} frais payés`} tone="success"/>
             <KPI Icon={Send} label="Invitations" value={data.invitations_envoyees}/>
+          </div>
+
+          <div className="mt-6">
+            <div className="card">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-base font-bold">Dernières Transactions (Vue Globale)</h3>
+              </div>
+              {(!data.derniers_paiements || data.derniers_paiements.length === 0) ? (
+                <p className="py-6 text-center text-sm text-wave-500">Aucune transaction enregistrée.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-wave-100 text-wave-400">
+                        <th className="py-3 px-2 font-bold uppercase tracking-wider text-[10px]">Date</th>
+                        <th className="py-3 px-2 font-bold uppercase tracking-wider text-[10px]">Groupe / Membre</th>
+                        <th className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-right">Volume facturé</th>
+                        <th className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-right">Groupe reçoit</th>
+                        <th className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-right text-emerald-600">Commission Pro</th>
+                        <th className="py-3 px-2 font-bold uppercase tracking-wider text-[10px] text-center">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-wave-50">
+                      {data.derniers_paiements.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-wave-50/50">
+                          <td className="py-3 px-2 whitespace-nowrap text-wave-600 font-medium">{new Date(tx.date_paiement).toLocaleDateString("fr-FR")}</td>
+                          <td className="py-3 px-2">
+                            <p className="font-bold text-wave-900 truncate max-w-[200px]">{tx.groupe?.nom}</p>
+                            <p className="text-[11px] text-wave-400 truncate max-w-[200px]">{tx.membre?.prenom} {tx.membre?.nom}</p>
+                          </td>
+                          <td className="py-3 px-2 text-right font-bold text-wave-900">{fcfa(tx.montant)}</td>
+                          <td className="py-3 px-2 text-right font-semibold text-wave-500">{fcfa(tx.montant_membre || tx.montant)}</td>
+                          <td className="py-3 px-2 text-right font-black text-emerald-600">{fcfa(tx.commission_plateforme || 0)}</td>
+                          <td className="py-3 px-2 text-center">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                              tx.statut === "reussi" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                              tx.statut === "en_attente" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                              "bg-rose-50 text-rose-600 border border-rose-100"
+                            }`}>
+                              {tx.statut}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -90,16 +140,17 @@ export default function SuperAdmin() {
 
 function KPI({ Icon, label, value, sub, tone }) {
   const dark = tone === "dark";
+  const success = tone === "success";
   return (
-    <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={`rounded-3xl p-4 shadow-soft ring-1 ring-wave-100 ${dark ? "wave-bg text-white ring-0" : "bg-white"}`}>
+    <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={`rounded-3xl p-4 shadow-soft ring-1 ring-wave-100 ${dark ? "wave-bg text-white ring-0" : success ? "bg-emerald-600 text-white ring-0" : "bg-white"}`}>
       <div className="flex items-center gap-3">
-        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${dark ? "bg-white/15" : "bg-wave-50 text-wave-700"}`}><Icon className="h-5 w-5"/></span>
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${dark || success ? "bg-white/15" : "bg-wave-50 text-wave-700"}`}><Icon className="h-5 w-5"/></span>
         <div className="min-w-0">
-          <p className={`text-[11px] leading-tight ${dark ? "text-white/70" : "text-wave-500"}`}>{label}</p>
+          <p className={`text-[11px] leading-tight ${dark || success ? "text-white/70" : "text-wave-500"}`}>{label}</p>
           <p className="font-display text-xl font-extrabold leading-tight">{value}</p>
         </div>
       </div>
-      {sub && <p className={`mt-2 text-[10px] ${dark ? "text-white/60" : "text-wave-400"}`}>{sub}</p>}
+      {sub && <p className={`mt-2 text-[10px] ${dark || success ? "text-white/60" : "text-wave-400"}`}>{sub}</p>}
     </motion.div>
   );
 }

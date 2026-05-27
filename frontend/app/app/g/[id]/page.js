@@ -326,7 +326,26 @@ export default function GestionnaireDashboard() {
                       </p>
                     </div>
                   </div>
-                  <p className={`text-base font-extrabold ${cfg.textCls}`}>{fcfa(tx.montant).replace(' FCFA', '')}</p>
+                  <div className="flex items-center gap-2">
+                    {tx.statut === "en_attente" && tx.transaction_id && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const res = await api.post(`/groupes/${id}/paiements/${tx.id}/verifier`);
+                            alert(res.data.message || "Vérification effectuée.");
+                            loadDashboard();
+                          } catch (err) {
+                            alert(err.response?.data?.message || "Erreur lors de la vérification.");
+                          }
+                        }}
+                        className="rounded-xl bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition whitespace-nowrap"
+                      >
+                        Vérifier
+                      </button>
+                    )}
+                    <p className={`text-base font-extrabold ${cfg.textCls}`}>{fcfa(tx.montant).replace(' FCFA', '')}</p>
+                  </div>
                 </div>
               );
             })}

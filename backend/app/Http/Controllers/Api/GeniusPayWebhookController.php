@@ -158,19 +158,6 @@ class GeniusPayWebhookController extends Controller
         try {
             app(PaiementController::class)->enregistrerPaiementConfirme($groupe, $membre, $type, $montant, $transactionId);
             
-            // Mise à jour du solde du gestionnaire avec les frais (commission de la plateforme)
-            if ($frais > 0 && $groupe && $groupe->gestionnaire) {
-                $gestionnaire = $groupe->gestionnaire;
-                $gestionnaire->solde += $frais;
-                $gestionnaire->save();
-                
-                Log::info("GeniusPay webhook: Commission versée au gestionnaire", [
-                    'gestionnaire_id' => $gestionnaire->id,
-                    'frais'           => $frais,
-                    'nouveau_solde'   => $gestionnaire->solde
-                ]);
-            }
-
             return response()->json(['ok' => true]);
         } catch (\Throwable $exception) {
             Log::error('GeniusPay webhook: erreur lors du traitement', [

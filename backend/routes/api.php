@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/groupes/{groupe}/paiements/{paiement}', [PaiementController::class, 'update']);
     Route::get('/groupes/{groupe}/mes-paiements', [PaiementController::class, 'mesPaiements']);
     Route::post('/groupes/{groupe}/paiements/initier', [PaiementController::class, 'initierPaiement']);
+    Route::post('/groupes/{groupe}/paiements/{paiement}/verifier', [PaiementController::class, 'verifierPaiement']);
 
     Route::get('/groupes/{groupe}/paiements/{paiement}/preuve', [PaiementController::class, 'preuveImage']);
 
