@@ -27,22 +27,24 @@ export default function AppShell({ title = "CotisPro", back, children, role = "g
   if (!user) return null;
 
   const userRole = user.role || role;
+  const validGroupeId = groupeId && groupeId !== 'undefined';
   const nav = userRole === "super_admin"
     ? [
         { href: "/app/admin", label: "Tableau", Icon: ShieldCheck },
         { href: "/app/admin/groupes", label: "Groupes", Icon: Users },
       ]
-    : userRole === "membre"
+    : userRole === "membre" && validGroupeId
     ? [
         { href: `/app/m/${groupeId}`, label: "Accueil", Icon: Home },
         { href: `/app/m/${groupeId}/paiements`, label: "Paiements", Icon: Wallet },
         { href: `/app/m/${groupeId}/carte`, label: "Carte", Icon: CreditCard },
       ]
-    : groupeId
+    : validGroupeId
     ? [
         { href: `/app/g/${groupeId}`, label: "Accueil", Icon: Home },
         { href: `/app/g/${groupeId}/membres`, label: "Membres", Icon: Users },
         { href: `/app/g/${groupeId}/caisse`, label: "Caisse", Icon: Wallet },
+        { href: "/app/portail", label: "Carte", Icon: CreditCard },
       ]
     : [
         { href: "/app", label: "Accueil", Icon: Home },

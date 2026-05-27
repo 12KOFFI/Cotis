@@ -14,17 +14,22 @@ use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\SuperAdminController;
 use App\Http\Controllers\Api\GroupInviteLinkController;
 use App\Http\Controllers\Api\JoinController;
-use App\Http\Controllers\Api\WaveWebhookController;
+use App\Http\Controllers\Api\GeniusPayWebhookController;
+use App\Http\Controllers\Api\MembreAccesController;
 
 // Public
-Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login', [AuthController::class, 'login']);
+Route::middleware('throttle:10,1')->post('/auth/register', [AuthController::class, 'register']);
+Route::middleware('throttle:6,1')->post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/accept-invitation', [AuthController::class, 'acceptInvitation']);
 Route::get('/invitations/{token}', [InvitationController::class, 'verify']);
 Route::get('/join/{token}', [JoinController::class, 'show']);
 Route::post('/join/{token}', [JoinController::class, 'join']);
 Route::get('/public/membre/{membre}/history', [CarteController::class, 'publicHistory']);
-Route::post('/webhooks/wave', [WaveWebhookController::class, 'handle']);
+Route::get('/public/gestionnaire/{user}/portail', [CarteController::class, 'publicPortail']);
+Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres', [CarteController::class, 'publicPortailMembres']);
+Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres/{membre}/paiements', [CarteController::class, 'publicPortailPaiements']);
+Route::post('/webhooks/geniuspay', [GeniusPayWebhookController::class, 'handle']);
+Route::get('/acces/{token}', [MembreAccesController::class, 'show']);
 
 // Authenticated
 Route::middleware('auth:sanctum')->group(function () {
@@ -62,12 +67,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/groupes/{groupe}/paiements', [PaiementController::class, 'store']);
     Route::put('/groupes/{groupe}/paiements/{paiement}', [PaiementController::class, 'update']);
     Route::get('/groupes/{groupe}/mes-paiements', [PaiementController::class, 'mesPaiements']);
+    Route::post('/groupes/{groupe}/paiements/initier', [PaiementController::class, 'initierPaiement']);
 
-    // Demandes de paiement (membre soumet, gestionnaire valide/refuse)
-    Route::post('/groupes/{groupe}/paiements/demande', [PaiementController::class, 'storeDemande']);
-    Route::get('/groupes/{groupe}/paiements/demandes', [PaiementController::class, 'demandes']);
-    Route::post('/groupes/{groupe}/paiements/{paiement}/valider', [PaiementController::class, 'validerDemande']);
-    Route::post('/groupes/{groupe}/paiements/{paiement}/refuser', [PaiementController::class, 'refuserDemande']);
     Route::get('/groupes/{groupe}/paiements/{paiement}/preuve', [PaiementController::class, 'preuveImage']);
 
     // Caisse
@@ -77,6 +78,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Carte virtuelle
     Route::get('/groupes/{groupe}/membres/{membre}/carte', [CarteController::class, 'show']);
     Route::get('/groupes/{groupe}/membres/{membre}/carte/pdf', [CarteController::class, 'pdf']);
+    Route::get('/carte/portail', [CarteController::class, 'portail']);
+    Route::get('/carte/portail/pdf', [CarteController::class, 'portailPdf']);
 
     // Export
     Route::get('/groupes/{groupe}/export/csv', [ExportController::class, 'csv']);

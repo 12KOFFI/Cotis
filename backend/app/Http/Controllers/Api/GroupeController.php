@@ -58,16 +58,23 @@ class GroupeController extends Controller
         $groupe = Groupe::create($data);
         // Create unique caisse
         Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
-        // Create gestionnaire as a member too
-        Membre::create([
-            'groupe_id' => $groupe->id,
-            'user_id' => $request->user()->id,
-            'nom' => $request->user()->name,
-            'email' => $request->user()->email,
-            'telephone' => $request->user()->telephone,
-            'role' => 'gestionnaire',
-            'statut' => 'actif',
-        ]);
+        // Check if gestionnaire already has a member card
+        $hasCard = Membre::where('user_id', $request->user()->id)
+            ->where('role', 'gestionnaire')
+            ->exists();
+
+        if (!$hasCard) {
+            // Create gestionnaire as a member too (this is their unique card)
+            Membre::create([
+                'groupe_id' => $groupe->id,
+                'user_id' => $request->user()->id,
+                'nom' => $request->user()->name,
+                'email' => $request->user()->email,
+                'telephone' => $request->user()->telephone,
+                'role' => 'gestionnaire',
+                'statut' => 'actif',
+            ]);
+        }
         // Create first period
         $this->generatePeriod($groupe);
         return response()->json(['groupe' => $groupe->load('caisse')], 201);
@@ -101,7 +108,19 @@ class GroupeController extends Controller
             'annuelle' => $start->copy()->addYear()->subDay(),
             default => $start->copy()->addMonth()->subDay(),
         };
-        $nbMembres = max(1, $groupe->membres()->where('statut', 'actif')->count());
+
+        if ($groupe->frequence === 'autre') {
+            $customDates = collect($groupe->dates_autres ?? [])
+                ->map(fn($d) => Carbon::parse($d)->startOfDay())
+                ->filter(fn($d) => $d->greaterThanOrEqualTo($start->copy()->startOfDay()))
+                ->sort()
+                ->values();
+            if ($customDates->isNotEmpty()) {
+                $end = $customDates->first();
+            }
+        }
+
+        $nbMembres = max(1, $groupe->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
         return Periode::create([
             'groupe_id' => $groupe->id,
             'date_debut' => $start,
@@ -120,6 +139,27 @@ class GroupeController extends Controller
             return response()->json([
                 'message' => 'Impossible de supprimer ce groupe car des paiements ont déjà été effectués.'
             ], 400);
+        }
+
+        // Before deleting the group, check if this group is linked to the gestionnaire's unique member card
+        $gestionnaireCard = Membre::where('user_id', $groupe->gestionnaire_id)
+            ->where('role', 'gestionnaire')
+            ->where('groupe_id', $groupe->id)
+            ->first();
+
+        if ($gestionnaireCard) {
+            // Find another group managed by the same gestionnaire
+            $otherGroupe = Groupe::where('gestionnaire_id', $groupe->gestionnaire_id)
+                ->where('id', '!=', $groupe->id)
+                ->first();
+
+            if ($otherGroupe) {
+                // Transfer the card to the other group so it isn't cascade deleted
+                $gestionnaireCard->update(['groupe_id' => $otherGroupe->id]);
+            } else {
+                // If there are no other groups, the card can be deleted safely
+                $gestionnaireCard->delete();
+            }
         }
 
         $groupe->delete();

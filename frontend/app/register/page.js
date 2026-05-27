@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Wallet, ArrowRight, User, Mail, Lock, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Wallet, ArrowRight, User, Mail, Lock, ShieldCheck, ArrowLeft, Users, Eye, EyeOff, XCircle, CheckCircle2 } from "lucide-react";
 import { api, auth } from "../lib/api";
 import PhoneInput from "../components/PhoneInput";
 
@@ -21,7 +21,38 @@ export default function Register() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConf, setShowPasswordConf] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState([]);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confTouched, setConfTouched] = useState(false);
   const emailRef = useRef(null);
+
+  
+  const validatePassword = (val) => {
+    const errs = [];
+    if (val.length > 0) {
+      if (val.length < 8) errs.push("8 caractères minimum");
+      if (!/[A-Z]/.test(val) || !/[a-z]/.test(val)) errs.push("Une majuscule et une minuscule");
+      if (!/[0-9]/.test(val)) errs.push("Au moins un chiffre");
+    }
+    setPasswordErrors(errs);
+  };
+
+  const handlePasswordChange = (e) => {
+    const val = e.target.value;
+    setForm({ ...form, password: val });
+    // Réinitialise l'état d'erreur pendant la saisie (évite le rouge immédiat)
+    setPasswordErrors([]);
+    setPasswordTouched(false);
+  };
+
+  const handlePasswordConfChange = (e) => {
+    const val = e.target.value;
+    setForm({ ...form, password_confirmation: val });
+    // Réinitialise la confirmation pour éviter le rouge immédiat pendant la saisie
+    setConfTouched(false);
+  };
 
   // Compute email suggestions based on current input
   const emailSuggestions = (() => {
@@ -93,6 +124,15 @@ export default function Register() {
           <div className="mb-8">
             <h1 className="font-display text-3xl font-black text-slate-900">Rejoignez-nous</h1>
             <p className="mt-2 text-slate-500 font-medium">Digitalisez votre tontine ou association en quelques clics.</p>
+            
+            <div className="mt-5 flex items-center gap-3 rounded-2xl bg-wave-50 border border-wave-100/50 p-4 text-wave-800">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-wave-600 text-white shadow-md shadow-wave-200">
+                <Users className="h-4 w-4" />
+              </span>
+              <p className="text-[11px] font-black uppercase tracking-wider text-wave-900 leading-normal">
+                JE SUIS UNE ASSOCIATION ET SOUHAITE CRÉER MON COMPTE GRATUITEMENT
+              </p>
+            </div>
           </div>
 
           <form onSubmit={submit} className="space-y-5">
@@ -153,16 +193,71 @@ export default function Register() {
               <div>
                 <label className="label text-xs font-black uppercase tracking-wider text-slate-400 mb-2 block">Mot de passe</label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 group-focus-within:text-wave-600 transition-colors" />
-                  <input type="password" required className="input pl-12 bg-slate-50 border-slate-100 h-14" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
+                  <Lock className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 transition-colors ${passwordTouched && passwordErrors.length > 0 ? 'text-rose-500' : 'text-slate-300 group-focus-within:text-wave-600'}`} />
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    required 
+                    className={`input pl-12 pr-12 h-14 transition-colors ${passwordTouched && passwordErrors.length > 0 ? 'bg-rose-50 border-rose-300 text-rose-900 focus:border-rose-500 focus:ring-rose-500/20' : 'bg-slate-50 border-slate-100'}`}
+                    value={form.password} 
+                    onChange={handlePasswordChange} 
+                    onBlur={() => {
+                      setPasswordTouched(true);
+                      validatePassword(form.password);
+                    }}
+                    placeholder="••••••••" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
+                {/* Facebook style validation feedback */}
+                {passwordTouched && form.password.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {passwordErrors.length > 0 ? (
+                      passwordErrors.map((err, i) => (
+                        <p key={i} className="flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                          <XCircle className="h-3.5 w-3.5" /> {err}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Mot de passe robuste
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
+              
               <div>
                 <label className="label text-xs font-black uppercase tracking-wider text-slate-400 mb-2 block">Confirmation</label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 group-focus-within:text-wave-600 transition-colors" />
-                  <input type="password" required className="input pl-12 bg-slate-50 border-slate-100 h-14" value={form.password_confirmation} onChange={(e) => setForm({ ...form, password_confirmation: e.target.value })} placeholder="••••••••" />
+                  <Lock className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 transition-colors ${confTouched && form.password_confirmation && form.password !== form.password_confirmation ? 'text-rose-500' : 'text-slate-300 group-focus-within:text-wave-600'}`} />
+                  <input 
+                    type={showPasswordConf ? "text" : "password"} 
+                    required 
+                    className={`input pl-12 pr-12 h-14 transition-colors ${confTouched && form.password_confirmation && form.password !== form.password_confirmation ? 'bg-rose-50 border-rose-300 text-rose-900 focus:border-rose-500 focus:ring-rose-500/20' : 'bg-slate-50 border-slate-100'}`}
+                    value={form.password_confirmation} 
+                    onChange={handlePasswordConfChange} 
+                    onBlur={() => setConfTouched(true)}
+                    placeholder="••••••••" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPasswordConf(!showPasswordConf)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showPasswordConf ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
+                {confTouched && form.password_confirmation && form.password !== form.password_confirmation && (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                    <XCircle className="h-3.5 w-3.5" /> Les mots de passe ne correspondent pas
+                  </p>
+                )}
               </div>
             </div>
 

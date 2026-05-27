@@ -7,7 +7,12 @@ use Illuminate\Support\Carbon;
 
 class Groupe extends Model
 {
-    protected $guarded = [];
+    protected $fillable = [
+        'gestionnaire_id', 'nom', 'description', 'logo',
+        'frequence', 'montant_standard', 'montant_personnalisable',
+        'date_debut', 'dates_autres',
+        'adhesion_active', 'adhesion_montant',
+    ];
     protected $casts = [
         'adhesion_active' => 'boolean',
         'montant_personnalisable' => 'boolean',
@@ -26,9 +31,34 @@ class Groupe extends Model
 
     public function ensurePeriodsUpToDate(): void
     {
-        $latest = $this->periodes()->latest('date_debut')->first();
         $now = now()->startOfDay();
 
+        if ($this->frequence === 'autre') {
+            $customDates = collect($this->dates_autres ?? [])
+                ->map(fn($d) => Carbon::parse($d)->startOfDay())
+                ->filter(fn($d) => $d->greaterThanOrEqualTo(Carbon::parse($this->date_debut)->startOfDay()))
+                ->sort()
+                ->values();
+
+            $start = Carbon::parse($this->date_debut)->startOfDay();
+            foreach ($customDates as $date) {
+                $exists = $this->periodes()->where('date_fin', $date->toDateString())->exists();
+                if (!$exists && $start->lte($now)) {
+                    $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
+                    Periode::create([
+                        'groupe_id' => $this->id,
+                        'date_debut' => $start,
+                        'date_fin' => $date,
+                        'echeance' => $date,
+                        'montant_attendu' => $this->montant_standard * $nbMembres,
+                    ]);
+                }
+                $start = $date->copy()->addDay();
+            }
+            return;
+        }
+
+        $latest = $this->periodes()->latest('date_debut')->first();
         if (!$latest) {
             $start = Carbon::parse($this->date_debut)->startOfDay();
         } else {
@@ -45,7 +75,7 @@ class Groupe extends Model
                 'annuelle' => $start->copy()->addYear()->subDay(),
                 default => $start->copy()->addMonth()->subDay(),
             };
-            $nbMembres = max(1, $this->membres()->where('statut', 'actif')->count());
+            $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
             Periode::create([
                 'groupe_id' => $this->id,
                 'date_debut' => $start,

@@ -61,18 +61,28 @@ export default function ProfilPage() {
     <AppShell title="Mon Profil" back>
       <div className="mx-auto max-w-xl space-y-8 pb-10 print:m-0 print:space-y-0 print:pb-0">
         {/* User Info */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="card flex items-center gap-4 print:hidden">
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full wave-bg text-2xl font-bold text-white shadow-soft">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-6 shadow-sm border border-wave-100 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 print:hidden">
+          <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full wave-bg text-3xl font-extrabold text-white shadow-md ring-4 ring-wave-100/50">
             {(user.name || "?")[0]}
           </div>
-          <div>
-            <h2 className="font-display text-xl font-extrabold text-wave-900">{user.name}</h2>
-            <div className="mt-1 space-y-1 text-sm text-wave-600">
-              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> {user.email}</p>
-              {user.telephone && <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> {user.telephone}</p>}
-              <p className="flex items-center gap-2 capitalize">
-                <ShieldCheck className="h-4 w-4" /> {user.role === 'gestionnaire' ? 'Administrateur' : user.role}
-              </p>
+          <div className="text-center sm:text-left flex-1 min-w-0 w-full">
+            <h2 className="font-display text-2xl font-extrabold text-wave-950 truncate leading-tight">{user.name}</h2>
+            
+            <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center gap-2.5 sm:gap-4 text-xs font-bold text-wave-600">
+              <div className="flex items-center gap-2 bg-wave-50 border border-wave-100 px-3 py-1.5 rounded-full">
+                <Mail className="h-3.5 w-3.5 text-wave-400" />
+                <span className="truncate">{user.email}</span>
+              </div>
+              {user.telephone && (
+                <div className="flex items-center gap-2 bg-wave-50 border border-wave-100 px-3 py-1.5 rounded-full">
+                  <Phone className="h-3.5 w-3.5 text-wave-400" />
+                  <span>{user.telephone}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 bg-brand-50 border border-brand-100 text-brand-700 px-3 py-1.5 rounded-full capitalize font-black">
+                <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
+                <span>{user.role === 'gestionnaire' ? 'Administrateur' : (user.role === 'tresorier' ? 'Trésorier' : 'Membre')}</span>
+              </div>
             </div>
           </div>
         </motion.div>

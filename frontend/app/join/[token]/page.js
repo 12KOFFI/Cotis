@@ -84,7 +84,11 @@ export default function JoinPage() {
           ) : (
             <>
               <div className="mb-5 rounded-3xl bg-wave-50 p-4 text-center">
-                <Users className="mx-auto h-8 w-8 text-wave-700" />
+                {info.groupe.logo ? (
+                  <img src={info.groupe.logo} alt={info.groupe.nom} className="mx-auto h-16 w-16 rounded-2xl object-cover" />
+                ) : (
+                  <Users className="mx-auto h-8 w-8 text-wave-700" />
+                )}
                 <p className="mt-3 text-xs uppercase tracking-widest text-wave-400">Invitation groupe</p>
                 <h1 className="font-display text-xl font-extrabold text-wave-900">{info.groupe.nom}</h1>
                 <p className="mt-1 text-xs capitalize text-wave-500">{info.groupe.type}</p>

@@ -66,11 +66,21 @@ function InvitationInner() {
               <p className="mt-2 text-sm text-wave-600">Demandez un nouveau lien à votre gestionnaire.</p>
             </div>
           ) : (
-            <>
+              <>
               <div className="flex items-center gap-2 text-xs text-brand-600"><ShieldCheck className="h-4 w-4" /> Lien sécurisé</div>
-              <h1 className="mt-2 font-display text-2xl font-extrabold">Bienvenue !</h1>
-              <p className="mt-1 text-sm text-wave-600">
-                Vous êtes invité(e) à rejoindre <strong>{inv?.groupe?.nom}</strong>.
+              <div className="mt-3 flex items-center gap-3 rounded-2xl bg-wave-50 p-4">
+                {inv?.groupe?.logo ? (
+                  <img src={inv.groupe.logo} alt={inv.groupe.nom} className="h-12 w-12 rounded-xl object-cover" />
+                ) : (
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl wave-bg text-lg font-bold text-white">{inv?.groupe?.nom?.[0]}</span>
+                )}
+                <div>
+                  <h1 className="font-display text-xl font-extrabold">{inv?.groupe?.nom}</h1>
+                  <p className="text-xs text-wave-500 capitalize">{inv?.groupe?.type}</p>
+                </div>
+              </div>
+              <p className="text-sm text-wave-600">
+                Vous êtes invité(e) à rejoindre ce groupe.
               </p>
               <form onSubmit={accept} className="mt-6 space-y-4">
                 <div className="grid grid-cols-2 gap-3">

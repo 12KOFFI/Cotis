@@ -1,55 +1,214 @@
-📦 PWA + LANDING PAGE — Récapitulatif complet
+📦 LOGO DES GROUPES — Upload + Affichage
 
-=== FICHIERS CRÉÉS ===
+=== BACKEND (modifié) ===
 
-frontend/app/components/pwa/usePwaInstall.ts
-  Hook : beforeinstallprompt, détection iOS, appinstalled, SW registration
-  Return : canInstall, isIOS, handleInstall, hasPrompt
+backend/app/Http/Controllers/Api/JoinController.php
+  show() : ajout 'logo' dans la réponse groupe
 
-frontend/app/components/pwa/IosInstallModal.tsx
-  Modale iOS : 3 étapes visuelles (Partager → Défiler → Sur l'écran d'accueil)
+=== FRONTEND (modifié) ===
 
-frontend/app/components/pwa/InstallButton.tsx
-  Bouton inline, props className/large
-  Gère Android, iOS, fallback
+frontend/app/app/groupes/new/page.js
+  Ajout upload logo (FileReader → base64) dans l'étape 1
+  Prévisualisation avec suppression possible
+  Champ optionnel, stocké dans le champ logo du groupe
 
-=== FICHIERS MODIFIÉS ===
+frontend/app/app/page.js (liste des groupes)
+  Affiche le logo (img) ou l'initiale (fallback) pour chaque groupe
 
-frontend/app/layout.js
-  Retrait PwaInstallPrompt et InstallButton du layout global
+frontend/app/app/g/[id]/page.js (dashboard gestionnaire)
+  En-tête avec logo du groupe + nom avant les KPIs
 
-frontend/app/components/Landing.js
-  Import de InstallButton
-  Section "Téléchargez l'application" ajoutée avant les features, avec id="install-app"
-    - Icône icon-512.png, InstallButton large, titre, description
-  Bouton flottant (Download) : icône Download, scroll vers #install-app au clic
-    - scrollIntoView({ behavior: "smooth" })
-    - visible après 500px de scroll (showTop)
-    - fixed bottom-6 right-6
-  Feature "Collecte Multi-canal" mise à jour :
-    Avant : "Encaissez via Wave, Orange Money ou cash..."
-    Après : "Wave, Orange Money, Moov Money, MTN, Cash. Paiement par les membres avec preuve, validation par le gestionnaire."
-  Retrait : Smartphone, ArrowUp, FloatingInstallIcon, showInstallFab
+frontend/app/app/m/[id]/page.js (dashboard membre)
+  En-tête avec logo du groupe + nom avant la carte cotisation
+
+frontend/app/invitation/page.js
+  Affiche le logo du groupe + nom dans l'en-tête d'invitation
+
+frontend/app/join/[token]/page.js
+  Affiche le logo du groupe (ou icône Users en fallback)
+
+=== FONCTIONNEMENT ===
+
+Upload : l'utilisateur choisit une image → convertie en base64 → envoyée dans le champ logo
+Stockage : base64 dans la colonne logo de la table groupes (déjà existante)
+Affichage : <img> si logo présent, sinon lettre initiale du nom du groupe
+
+==================================================
+
+📱 VISIBILITÉ & UX/UI DU MOCKUP TÉLÉPHONE (MOBILE & DESKTOP)
+
+=== BACKEND ===
+(Aucun changement)
+
+=== FRONTEND (modifié) ===
 
 frontend/app/components/PhoneMock.js
-  Animation apparition/disparition au scroll via useInView + AnimatePresence (framer-motion)
-  Apparaît : scale(0.7→1), opacity(0→1), y(60→0)
-  Disparaît : scale(1→0.7), opacity(1→0), y(0→-60)
-  Ref + margin -80px pour trigger au bon moment
+  Correction du bug de visibilité sur mobile (remplacement de useInView par whileInView pour garder la hauteur).
+  Intégration des badges flottants directement dans le conteneur du téléphone.
+  Optimisation des tailles de police et du padding interne pour éviter le retour à la ligne du solde.
 
-frontend/app/components/pwa/usePwaInstall.ts
-  canInstall : "checked && !isInstalled" (supprimé la dépendance deferredPrompt)
-  hasPrompt ajouté au return
+frontend/app/components/Landing.js
+  Suppression des classes grid order pour un affichage naturel (texte d'abord, mockup ensuite) sur mobile.
+  Suppression du badge flottant redondant.
 
-frontend/app/components/pwa/InstallButton.tsx
-  Passage en inline, props className/large, gestion fallback au clic
 
-=== FICHIERS CRÉÉS PUIS SUPPRIMÉS ===
+==================================================
 
-frontend/app/components/pwa/FloatingInstallIcon.tsx
-  FAB téléchargement — supprimé à la demande
+🇫🇷 TRADUCTION DES RESTRICTIONS & VALIDATIONS EN FRANÇAIS
 
-=== FICHIERS SUPPRIMÉS ===
+=== BACKEND (modifié) ===
 
-frontend/app/components/PwaInstallPrompt.js
-  Ancien popup automatique PWA
+backend/lang/fr/validation.php (créé)
+  Ajout de toutes les traductions de validation Laravel en français.
+  Mappage des attributs techniques vers le français (ex: 'montant_standard' => 'montant standard').
+
+backend/.env
+  Configuration de APP_LOCALE=fr, APP_FALLBACK_LOCALE=fr, APP_FAKER_LOCALE=fr_FR.
+
+=== FRONTEND ===
+(Aucun changement)
+
+==================================================
+
+🔒 RÉSOLUTION ERREUR SQL (DATA TOO LONG ON LOGO) & SÉCURISATION EXCEPTIONS
+
+=== BACKEND (modifié) ===
+
+backend/database/migrations/2026_05_19_232820_change_logo_column_type_in_groupes_table.php (créé)
+  Nouvelle migration pour modifier le type de la colonne 'logo' de string (VARCHAR(255)) en mediumText afin de stocker des images au format base64 sans erreur SQL de troncature (Data too long).
+
+backend/bootstrap/app.php
+  Ajout d'un gestionnaire d'exception global pour capturer les QueryException sur les requêtes JSON/API et renvoyer un message d'erreur générique en français ("Une erreur imprévue est survenue avec la base de données") plutôt que d'exposer la trace SQL brute en production.
+
+=== FRONTEND ===
+(Aucun changement)
+
+==================================================
+
+💳 CARTE MEMBRE UNIQUE POUR LE GESTIONNAIRE
+
+=== BACKEND (modifié) ===
+
+backend/app/Http/Controllers/Api/GroupeController.php
+  Dans 'store()' : Vérification préalable si le gestionnaire possède déjà un enregistrement dans 'membres' avec le rôle 'gestionnaire'. Si ce n'est pas le cas, sa carte membre unique est créée et associée au premier groupe. S'il en possède déjà une, l'étape est sautée pour conserver sa carte unique globale et éviter les doublons.
+  Dans 'destroy()' : Ajout d'une logique de réassociation avant la suppression du groupe. Si le groupe en cours de suppression est celui associé à la carte unique du gestionnaire, on recherche un autre groupe géré par ce dernier pour y lier la carte (évitant ainsi sa suppression en cascade). Si c'est son dernier groupe, la carte est supprimée normalement.
+
+=== FRONTEND ===
+(Aucun changement)
+
+==================================================
+
+🔧 CORRECTION ERREUR undefined DANS LES APPELS API (useParams)
+
+=== BACKEND ===
+(Aucun changement)
+
+=== FRONTEND (modifié) ===
+
+frontend/app/components/AppShell.js
+  Ajout d'une vérification `const validGroupeId = groupeId && groupeId !== 'undefined';` pour empêcher la génération de liens corrompus du type `/app/m/undefined/paiements` si `groupeId` n'est pas encore résolu, ce qui causait les erreurs 404 de l'API.
+
+frontend/app/app/m/[id]/paiements/page.js
+  Renforcement de la guard clause `if (!id || id === 'undefined') return;` dans useEffect pour éviter qu'une URL corrompue ne déclenche l'appel API.
+
+frontend/public/sw.js
+  Correction d'une erreur Service Worker (`Request scheme 'chrome-extension' is unsupported`) en ignorant les requêtes ne commençant pas par `http` lors de la mise en cache.
+
+frontend/app/app/m/[id]/page.js
+  Même correction sur le dashboard membre.
+
+frontend/app/app/m/[id]/carte/page.js
+  Même correction sur la page carte membre.
+
+frontend/app/app/g/[id]/page.js
+  Même correction sur le dashboard gestionnaire.
+
+frontend/app/app/g/[id]/membres/page.js
+  Même correction sur la page membres.
+
+frontend/app/app/g/[id]/caisse/page.js
+  Même correction sur la page caisse.
+
+==================================================
+
+🔑 DROITS DU TRÉSORIER — Accès complet (paiements, caisse, dashboard, membres)
+
+=== BACKEND (modifié) ===
+
+backend/app/Http/Controllers/Api/MembreController.php
+  Mise à jour de authorizeGroupe() : le trésorier (membre avec role='tresorier') a désormais les mêmes droits que le gestionnaire pour la gestion des membres.
+
+backend/app/Http/Controllers/Api/PaiementController.php
+  Mise à jour de authorizeGroupe() : le trésorier peut enregistrer des paiements manuels, valider et refuser des demandes de paiement.
+
+backend/app/Http/Controllers/Api/CaisseController.php
+  Mise à jour de authorizeGroupe() : le trésorier peut consulter la caisse et effectuer des décaissements.
+
+backend/app/Http/Controllers/Api/DashboardController.php
+  Mise à jour de authorizeGroupe() : le trésorier peut accéder au dashboard gestionnaire (KPIs, collecte, transactions).
+
+=== FRONTEND ===
+(Aucun changement — le frontend affichait déjà le badge Trésorier et le bouton d'attribution)
+
+==================================================
+
+🔗 LIEN D'ACCÈS SÉCURISÉ POUR MEMBRES HORS LIGNE
+
+=== BACKEND (modifié) ===
+
+backend/database/migrations/2026_05_20_120329_add_access_token_to_membres_table.php (créé)
+  Ajout d'une colonne `access_token` (VARCHAR 64, nullable, unique) à la table membres.
+
+backend/app/Models/Membre.php
+  Ajout d'un hook `booted()` qui génère automatiquement un access_token HMAC-SHA256 lors de la création d'un membre sans user_id (membre hors ligne).
+  Ajout de la méthode statique `generateAccessToken()`.
+
+backend/app/Http/Controllers/Api/MembreAccesController.php (créé)
+  Nouveau contrôleur public (sans authentification) qui valide un access_token et retourne le dashboard du membre en lecture seule : statut cotisation, historique des paiements, informations du groupe, statut adhésion.
+
+backend/routes/api.php
+  Ajout de la route publique GET `/acces/{token}` vers MembreAccesController@show.
+  Import du nouveau contrôleur.
+
+=== FRONTEND (modifié) ===
+
+frontend/app/acces/[token]/page.js (créé)
+  Nouvelle page publique d'accès membre via token sécurisé.
+  Affiche le statut de cotisation, la progression, l'historique des paiements, le numéro Wave du gestionnaire.
+  Mention "Lecture seule" visible, design cohérent avec le reste de l'app.
+
+frontend/app/app/g/[id]/membres/page.js
+  Ajout d'un bouton "Copier le lien d'accès" (icône Link2) visible uniquement pour les membres hors ligne (sans user_id, avec access_token).
+  Le bouton copie l'URL `/acces/{token}` dans le presse-papier avec feedback visuel (icône Check pendant 2 secondes).
+
+==================================================
+
+🎨 AMÉLIORATION UI/UX — LOGO DU GESTIONNAIRE AGRANDI
+
+=== BACKEND ===
+(Aucun changement)
+
+=== FRONTEND (modifié) ===
+
+frontend/app/app/g/[id]/page.js
+  Refonte de l'en-tête du dashboard gestionnaire : remplacement de la simple ligne logo 12x12 + nom par une bannière hero en dégradé (wave-bg) avec :
+  - Logo agrandi à 64x64 (mobile) / 80x80 (desktop)
+  - Ring blanc semi-transparent + ombre
+  - Badge du type de groupe (Tontine/Coopérative/Association)
+  - Nom du groupe en 2xl/extrabold
+  - Sous-titre avec rôle + nombre de membres
+
+frontend/app/app/profil/page.js
+  Refonte responsive de la carte d'informations du profil :
+  - Sur mobile : Agencement vertical (`flex-col`), avatar agrandi et centré au-dessus du nom.
+  - Sur desktop : Agencement horizontal (`sm:flex-row`).
+  - Les détails (email, téléphone, rôle) sont désormais présentés sous forme de "pills" (bulles avec fond de couleur) pour une meilleure lisibilité sur mobile.
+
+==================================================
+
+📝 MISE À JOUR DE CotisPro.txt
+
+  - Section 3.2 : Ajout de la fonctionnalité "Lien d'accès sécurisé" pour les membres hors ligne.
+  - Section 3.4 : Documentation détaillée des droits du Trésorier (✅/❌).
+  - Section 3.5 : Documentation de la cotisation personnalisée par membre.
+  - Section 6 : Remplacement de "SMS Minimaux" par "Notifications (V2)" car les SMS ne sont pas implémentés dans le MVP actuel.

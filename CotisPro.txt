@@ -1,7 +1,7 @@
 ================================================================================
                           COTISPRO — CAHIER DES CHARGES MVP
                      Version MVP Simplifiée — Validation Produit
-                         Avril 2026 (révisé) — Document complet
+                    Avril 2026 (révisé Mai 2026) — Document complet
 ================================================================================
 
 
@@ -11,23 +11,27 @@
 
 GESTIONNAIRE
   - Crée et configure le groupe
-  - Invite les membres par SMS ou WhatsApp
-  - Enregistre les paiements cash manuellement
-  - Suit la caisse unique en temps réel
-  - Envoie des rappels ciblés
+  - Invite les membres par lien d'invitation (copie/partage SMS/WhatsApp)
+  - Ajoute directement des membres (avec ou sans smartphone)
+  - Enregistre les paiements manuels (cash/virement) avec justificatif optionnel
+  - Gère les paramètres et tarifs du groupe (montant, adhésion, Wave)
+  - Suit la caisse en temps réel (solde total + solde retirable Wave)
+  - Décaisse depuis le solde retirable Wave
   - Exporte les rapports (PDF / CSV)
 
 MEMBRE
-  - Reçoit une invitation par SMS ou WhatsApp
+  - Reçoit un lien d'invitation (SMS, WhatsApp, copier-coller)
   - Accède à son espace personnel (web)
-  - Paie sa cotisation via Wave ou cash
+  - Paie sa cotisation via Wave uniquement (initié par le backend)
   - Consulte son historique de paiements
+  - Ne déclare JAMAIS de paiement — le backend est la seule source de vérité
 
 SYSTÈME (automatique)
-  - Envoie les SMS d'invitation et de rappel
-  - Calcule les statuts (À jour / Partiel / En retard)
-  - Traite les webhooks Wave
-  - Met à jour la caisse après chaque paiement
+  - Calcule les statuts (À jour / Partiel / En retard / Impayé)
+  - Traite les webhooks Wave (vérification HMAC via config())
+  - Calcule les soldes dynamiquement depuis le ledger (jamais stockés)
+  - Génère les périodes de cotisation automatiquement
+  - Vérifie l'idempotence des paiements Wave (transaction_id unique)
 
 
   Super Admin
@@ -101,8 +105,12 @@ Le gestionnaire configure son groupe en 2 étapes.
 3.2 — Ajout direct par le gestionnaire (membres sans smartphone)
   - Le gestionnaire saisit : Nom, Prénom, Téléphone, Note
   - Membre ajouté en statut "Actif non vérifié"
-  - SMS de bienvenue envoyé si numéro valide
   - Paiements enregistrés manuellement par le gestionnaire
+  - Un LIEN D'ACCÈS SÉCURISÉ est automatiquement généré (access_token HMAC-SHA256)
+  - Le gestionnaire peut copier ce lien et le partager (SMS, WhatsApp, etc.)
+  - Le membre clique sur le lien → accès en lecture seule à son espace personnel
+    (statut cotisation, historique des paiements, numéro Wave du gestionnaire)
+  - Aucune inscription ni connexion requise pour les membres hors ligne
   [NOTE] Statut initial "Actif non vérifié" : évite les faux membres actifs.
           Le statut passe à "Actif" dès le premier paiement ou la confirmation.
 
@@ -119,8 +127,23 @@ Le gestionnaire configure son groupe en 2 étapes.
 
 3.4 — Rôles (attribués par le gestionnaire)
   - Gestionnaire : accès complet (admin du groupe)
-  - Trésorier : rôle attribuable à un membre par le gestionnaire
-  - Membre standard
+  - Trésorier : rôle attribuable à un membre par le gestionnaire.
+    Droits du trésorier (identiques au gestionnaire, sauf suppression du groupe) :
+      ✅ Accès au dashboard gestionnaire (KPIs, collecte, transactions)
+      ✅ Enregistrement de paiements manuels (cash) avec justificatif
+      ✅ Accès à la caisse (visualisation et décaissements)
+      ✅ Gestion des membres (liste, détails, ajout)
+      ❌ Ne peut PAS supprimer le groupe
+      ❌ Ne peut PAS modifier les paramètres du groupe (tarifs, fréquence)
+  - Membre standard : accès à son espace personnel uniquement
+
+3.5 — Cotisation personnalisée par membre
+  - Le gestionnaire peut activer le toggle "Montant personnalisable"
+    dans les paramètres du groupe
+  - Si activé : lors de l'ajout d'un membre, un champ "Montant personnalisé"
+    apparaît (optionnel, par défaut = montant standard du groupe)
+  - Calcul utilisé partout : montant_perso du membre ?? montant_standard du groupe
+  - Impacte : dashboard, calcul des statuts, imputation des paiements
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -142,43 +165,49 @@ Le gestionnaire configure son groupe en 2 étapes.
     Exemple : 2 mois impayés (2 000 + 2 000), paiement de 3 000
               → mois 1 soldé (À jour), mois 2 partiel (1 000 restant)
 
-4.2 — Paiement Wave (In-App)
-  - Clic "Payer ma cotisation"
-  - Affichage : montant dû + reste à payer
-  - Sélection automatique : Wave
-  - Confirmation USSD ou push sur le téléphone du membre
-  - Argent versé directement sur le numéro Wave du gestionnaire
-  - Webhook reçu → vérification idempotente (transaction_id unique) → confirmation auto
-  - Caisse mise à jour via journal de mouvements (ledger)
-  - SMS de confirmation envoyé au membre
-  [NOTE] Idempotence webhook Wave : chaque transaction_id est vérifié avant traitement.
-          Un doublon est ignoré silencieusement. Évite le double crédit.
+4.2 — Paiement Wave (In-App) — Backend-Initiated
+  IMPORTANT : Le paiement Wave est initié par le BACKEND, jamais par le frontend.
+  Le membre ne voit qu'un bouton "Payer" — aucune clé API exposée côté client.
+
+  Flux :
+  1. Le membre clique "Payer" (un seul bouton, montant dû affiché)
+  2. Le frontend appelle POST /groupes/{id}/paiements/wave-initiate
+  3. Le backend crée la session Wave via l'API (clé stockée dans .env)
+  4. Le membre est redirigé vers Wave pour confirmer (USSD ou push)
+  5. Webhook reçu → vérification HMAC (config('services.wave.webhook_secret'))
+  6. Vérification idempotente (transaction_id unique) → confirmation auto
+  7. Écriture dans le ledger (entrée) → soldes recalculés dynamiquement
+
+  [NOTE] Le membre ne peut PAS déclarer un paiement. Seuls le backend (webhook)
+          et le gestionnaire (enregistrement manuel) peuvent créer des paiements.
 
   Statuts de paiement :
   STATUT      | DESCRIPTION
   ────────────┼──────────────────────────────────────────────
   En attente  | Paiement initié, en cours de traitement
-  Réussi      | Webhook Wave confirmé
+  Réussi      | Webhook Wave confirmé OU enregistrement manuel
   Échoué      | Timeout ou solde insuffisant
   Annulé      | Cas exceptionnel, action manuelle
 
-  [NOTE] Si Wave échoue, le gestionnaire dispose d'un bouton
-          "Marquer comme payé manuellement" pour régulariser.
+  [NOTE] Si Wave échoue, le gestionnaire peut enregistrer manuellement
+          le paiement avec un justificatif (image/PDF, max 5 Mo).
 
-4.3 — Paiement Manuel (Cash)
+4.3 — Paiement Manuel (Cash / Virement / Autre)
   Formulaire gestionnaire "Enregistrer un paiement" :
-  - Membre concerné
+  - Membre concerné (sélection dans la liste)
   - Type : Cotisation / Droit d'adhésion / Autre
-  - Montant
+  - Montant (FCFA)
+  - Mode : Cash / Wave / Virement / Autre
   - Date du paiement
-  - Mode : Cash / Virement direct / Autre
   - Note interne (optionnel)
+  - Justificatif (optionnel) : image JPEG/PNG/WebP ou PDF, max 5 Mo
+    → Stocké de façon sécurisée, consultable depuis le détail du mouvement
   Résultat :
-  - Caisse mise à jour via journal de mouvements
-  - SMS de confirmation envoyé au membre
+  - Écriture dans le ledger (entrée) → soldes recalculés dynamiquement
   - Enregistrement immédiat dans l'historique
-  [NOTE] Traçabilité : tout paiement cash modifié est marqué "modifié"
-          avec historique avant/après, identité gestionnaire et horodatage.
+  [NOTE] Traçabilité : tout paiement modifié est marqué "modifié"
+          avec historique avant/après (JSON), identité gestionnaire et horodatage.
+          Le justificatif est consultable dans le détail du mouvement de caisse.
 
 4.4 — Droit d'Adhésion
   - Paiement Wave ou cash uniquement
@@ -197,87 +226,107 @@ Le gestionnaire configure son groupe en 2 étapes.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5. CAISSE UNIQUE
+5. CAISSE UNIQUE — ARCHITECTURE FINTECH
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   - UNE seule caisse par groupe (V2 → multi-caisses)
   - Tous les paiements entrants (Wave + cash) alimentent la caisse via ledger
-  - Le solde est calculé UNIQUEMENT depuis le journal de mouvements (ledger)
-    → Jamais recalculé à la volée depuis les paiements bruts
-    → Chaque entrée/sortie génère une ligne immuable
 
-  Vue Tableau de Bord Caisse :
-  CAISSE            | TOTAL ATTENDU (période) | SOLDE CUMULÉ
-  ──────────────────┼─────────────────────────┼──────────────
-  Caisse principale | (ex : 60 000 FCFA)      | (ex : 211 000 FCFA)
+  PRINCIPE FINTECH FONDAMENTAL :
+  Les soldes ne sont JAMAIS stockés manuellement. Ils sont calculés
+  dynamiquement depuis le journal de mouvements (ledger), comme dans
+  les applications fintech modernes (Wave, Orange Money, etc.).
 
-  Décaissement (gestionnaire seul) :
-  - Sélectionner la caisse unique
-  - Saisir : montant, motif (obligatoire), bénéficiaire, date
-  - Valider → ligne de journal générée → solde recalculé
-  - Enregistrement dans l'historique des mouvements
-  - SMS aux membres : activé par défaut, désactivable avant validation
+  → Chaque entrée/sortie génère une ligne immuable dans le ledger
+  → Les soldes sont des agrégats SQL temps réel
+  → Zéro risque de désynchronisation entre le solde affiché et la réalité
+  → Audit trail naturel : toute valeur est traçable
+
+  DEUX SOLDES DISTINCTS :
+
+  SOLDE           | CALCUL                                | SIGNIFICATION
+  ────────────────┼───────────────────────────────────────┼──────────────────────────────
+  Solde total     | SUM(entrées) - SUM(sorties)           | Tout l'argent du groupe
+                  |                                       | (cash + wave + virement)
+  ────────────────┼───────────────────────────────────────┼──────────────────────────────
+  Solde retirable | SUM(entrées WHERE mode = 'wave')      | Montants reçus via mobile
+  (disponible)    |                                       | money uniquement — retirable
+                  |                                       | sur le compte Wave du
+                  |                                       | gestionnaire
+
+  [NOTE] Le solde retirable représente l'argent réellement disponible dans
+          le compte Wave du groupe, que le gestionnaire peut retirer.
+          Les paiements cash sont déjà physiquement en main.
+
+  Vue Caisse (Frontend) :
+  ┌────────────────────────────────────────┐
+  │  SOLDE TOTAL DE LA CAISSE              │
+  │  1 500 000 FCFA                        │
+  │  Entrées: 2 000 000  │  Sorties: 500K  │
+  └────────────────────────────────────────┘
+  ┌────────────────────────────────────────┐
+  │  SOLDE RETIRABLE · WAVE                │
+  │  800 000 FCFA            [Décaisser]   │
+  │  Montant reçu via mobile money         │
+  └────────────────────────────────────────┘
+
+  Décaissement (gestionnaire / trésorier) :
+  - Montant (vérifié contre le solde retirable Wave)
+  - Motif (obligatoire)
+  - Bénéficiaire (optionnel)
+  - Date
+  - Valider → écriture ledger (sortie) → soldes recalculés dynamiquement
 
   🗓️ V2 — Gestion multi-caisses avec répartition automatique.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-6. SMS MINIMAUX
+6. NOTIFICATIONS (V2 — non implémenté dans le MVP actuel)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  SMS courts, directs, orientés action terrain.
+  [NOTE] Les SMS ne sont PAS implémentés dans le MVP actuel.
+         L'envoi de notifications se fait via le partage manuel de liens
+         (liens d'invitation et liens d'accès sécurisés).
 
-  6.1 — Invitation membre
-    "[Prénom], [Gestionnaire] t'invite dans [Groupe].
-     Cotis : [montant]/[fréquence]. Rejoins : [lien]"
-
-  6.2 — Rappel de cotisation
-
-    J-3 avant échéance :
-    "[Prénom], cotisation [montant] dans 3 jours.
-     Paye : [lien] ou Wave : [numéro]"
-
-    Jour J (échéance) :
-    "[Prénom], cotisation [montant] due auj.
-     Reste : [solde]. Wave : [numéro]"
-
-  6.3 — Confirmation de paiement
-    "[Prénom], paiement [montant] reçu pour [Groupe]. Merci !"
-
-  6.4 — Rappel manuel (gestionnaire)
-    - "Relancer les retardataires" → SMS groupé à tous En retard / Partiel
-    - Prévisualisation du message avant envoi
-    - Quota mensuel de SMS inclus dans le plan
-
-  🗓️ V2 — SMS de suspension automatique (J-30, J-7).
+  🗓️ V2 — Intégration SMS / WhatsApp pour :
+    - Invitations automatiques
+    - Rappels d'échéance (J-3, Jour J)
+    - Confirmations de paiement
+    - Relances groupées des retardataires
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 7. TABLEAU DE BORD GESTIONNAIRE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Section Collecte (période en cours)
-    - Total attendu
-    - Total reçu
-    - Taux de collecte : (reçu / attendu) × 100
-    - Membres À jour / Partiels / En retard
-    - Dernières transactions
+  En-tête (Hero)
+    - Logo, nom du groupe, type, nombre de membres
 
-  Section Caisse
-    - Solde actuel de la caisse (depuis le ledger)
-    - Derniers décaissements
+  KPIs (cartes principales)
+    - Taux de collecte (%) avec barre de progression
+    - Solde total caisse + solde retirable Wave
 
-  Section Membres
-    - Nombre total de membres actifs
-    - Invitations en attente
+  Période en cours
+    - Dates début → fin, fréquence
 
-  Actions Rapides
-    - Enregistrer un paiement cash
-    - Envoyer un rappel groupé
-    - Inviter un nouveau membre
+  Statut des membres (grille)
+    - À jour / Partiel / En attente / En retard / Impayé (avec compteurs)
 
-  Export
-    - Export des statistiques en format PDF ou CSV
+  Actions Rapides (6 boutons)
+    - Enregistrer un paiement (modal avec justificatif optionnel)
+    - Ajouter un membre (modal : nom, prénom, téléphone, email, montant perso)
+    - Inviter (modal : générer/copier/régénérer/désactiver un lien d'invitation)
+    - Paramètres & Tarifs (modal : montant standard, adhésion, personnalisable, n° Wave)
+    - Rapport PDF (téléchargement direct)
+    - Export CSV (téléchargement direct)
+
+  Raccourcis navigation
+    - Membres (avec compteur)
+    - Caisse (avec solde)
+
+  Historique récent
+    - 5 dernières transactions avec statut, mode, type, date
+    - Lien "Tout voir" vers la page caisse
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -338,11 +387,17 @@ Le gestionnaire configure son groupe en 2 étapes.
   Partiel ⚠️  | 0 < versé < montant dû de la période en cours
   En retard ❌ | date dépassée ET versé < montant dû de la période en cours
 
-  Formules de Calcul
+  Formules de Calcul (dynamiques — jamais stockées)
     - Taux de collecte (%) = (total reçu / total attendu) × 100
-    - Solde caisse = Σ entrées ledger − Σ sorties ledger
-    - Reste à payer = montant dû − montant versé (période en cours)
-    - Crédit reporté = surpaiement période N → déduit du montant dû période N+1
+    - Solde total       = SUM(entrées ledger) − SUM(sorties ledger)
+    - Solde retirable   = SUM(entrées ledger WHERE paiement.mode = 'wave')
+    - Reste à payer     = montant dû − montant versé (période en cours)
+    - Crédit reporté    = surpaiement période N → déduit du montant dû période N+1
+
+  [NOTE FINTECH] Les soldes sont des accesseurs Eloquent calculés via
+    une requête SQL agrégée sur le ledger. Aucun champ "solde" n'est
+    incrémenté/décrémenté manuellement. Cela élimine les race conditions
+    et garantit la cohérence permanente entre le ledger et l'affichage.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -370,17 +425,24 @@ Le gestionnaire configure son groupe en 2 étapes.
   paiements         | Montant, statut, mode, date, type, modifié, historique_json
   paiements_log     | Avant/après modification, auteur, horodatage
   adhesion_frais    | Montant dû, payé, statut par membre
-  caisse            | Nom, groupe_id, solde courant
+  caisse            | Nom, groupe_id (solde calculé dynamiquement via ledger)
   caisse_ledger     | Type (entrée/sortie), montant, motif, date, ref_paiement_id
   credits_membres   | Membre, montant crédit, période source, appliqué_periode
 
   Webhook Wave
     - Endpoint dédié avec validation signature HMAC
+    - Secret webhook via config('services.wave.webhook_secret') — jamais env() direct
     - Vérification idempotente : transaction_id unique avant tout traitement
     - Doublon : ignoré silencieusement, log enregistré
     - Retry automatique : 3 tentatives (30s, 5min, 30min)
-    - Mise à jour ledger déclenchée après confirmation
+    - Écriture ledger après confirmation → soldes recalculés dynamiquement
     - Log immuable de chaque transaction
+
+  Variables d'environnement Wave (.env) :
+    - WAVE_API_KEY         : Clé API Wave (jamais exposée côté client)
+    - WAVE_WEBHOOK_SECRET  : Secret HMAC pour valider les webhooks
+    - WAVE_SUCCESS_URL     : URL de redirection après paiement réussi
+    - WAVE_ERROR_URL       : URL de redirection après paiement échoué
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -468,7 +530,19 @@ Le gestionnaire configure son groupe en 2 étapes.
 
   6. Le gestionnaire peut exporter les statistiques en PDF ou CSV.
 
+  7. Les soldes (total et retirable) sont TOUJOURS calculés dynamiquement
+     depuis le ledger — jamais stockés ni incrémentés manuellement.
+
+  8. Le paiement Wave membre est initié par le BACKEND uniquement.
+     Aucune clé API n'est exposée côté frontend.
+
+  9. Le membre ne peut PAS déclarer de paiement. Seuls le backend (webhook Wave)
+     et le gestionnaire (enregistrement manuel) peuvent créer des paiements.
+
+  10. Les paiements manuels supportent un justificatif optionnel
+      (image JPEG/PNG/WebP ou PDF, max 5 Mo).
+
 
 ================================================================================
-                    CotisPro MVP — Avril 2026 — Document révisé
+                  CotisPro MVP — Avril 2026 (révisé Mai 2026)
 ================================================================================

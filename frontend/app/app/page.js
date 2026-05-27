@@ -106,8 +106,8 @@ export default function AppHome() {
                     {isManager && <div className="absolute top-0 right-0 p-4 opacity-10"><Wallet className="h-24 w-24" /></div>}
                     <div className="relative z-10 flex justify-between items-start mb-4">
                       <div className="flex items-center gap-3">
-                        <span className={`grid h-12 w-12 place-items-center rounded-2xl font-bold text-lg ${isManager ? 'bg-white text-[#1e40af]' : 'wave-bg text-white'}`}>
-                          {g.nom[0]}
+                        <span className={`grid h-12 w-12 place-items-center rounded-2xl font-bold text-lg overflow-hidden ${isManager ? 'bg-white text-[#1e40af]' : 'wave-bg text-white'}`}>
+                          {g.logo ? <img src={g.logo} alt={g.nom} className="h-full w-full object-cover" /> : g.nom[0]}
                         </span>
                         <div>
                           <p className={`font-display font-bold text-lg ${isManager ? 'text-white' : 'text-wave-900'}`}>{g.nom}</p>

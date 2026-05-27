@@ -77,7 +77,7 @@ export default function Landing() {
         />
 
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-12 pt-8 sm:px-6 sm:pt-16 md:grid-cols-2 md:gap-16 lg:pt-24">
-          <div className="order-2 text-center md:order-1 md:text-left">
+          <div className="text-center md:text-left">
             {/* Badge retiré */}
 
             <motion.h1
@@ -86,7 +86,7 @@ export default function Landing() {
                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto max-w-[20rem] font-display text-[2.5rem] font-black leading-[1.05] tracking-tight text-slate-900 sm:max-w-none sm:text-6xl lg:text-7xl"
             >
-              Gérez vos{" "}
+              Gerez vos{" "}
               <span className="relative inline-block text-brand-600">
               cotisations
                 <svg
@@ -116,8 +116,8 @@ export default function Landing() {
               }}
               className="mx-auto mt-6 max-w-sm text-base leading-relaxed text-slate-600 sm:max-w-lg sm:text-xl md:mx-0"
             >
-              Gérez vos tontines, associations et coopératives avec la puissance
-              du digital. Simple, transparent et 100% sécurisé.
+              Gerez vos tontines, associations et cooperatives avec la puissance
+              du digital. Simple, transparent et 100% securise.
             </motion.p>
 
             <motion.div
@@ -134,7 +134,7 @@ export default function Landing() {
                 href="/register"
                 className="btn-primary group w-full !py-4 text-base shadow-xl shadow-brand-200/50 sm:w-auto sm:!px-8"
               >
-                Créer un groupe
+                Creer un groupe
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
               <a
@@ -142,7 +142,7 @@ export default function Landing() {
                 className="btn-ghost group w-full !py-4 text-base sm:w-auto sm:!px-7"
               >
                 <PlayCircle className="h-6 w-6 text-brand-500 transition-colors group-hover:text-brand-600" />
-                Démo interactive
+                Demo interactive
               </a>
             </motion.div>
 
@@ -155,10 +155,10 @@ export default function Landing() {
               {[
                 {
                   Icon: ShieldCheck,
-                  t: "Données protégées",
+                  t: "Donnees protegees",
                   c: "text-emerald-500",
                 },
-                { Icon: Zap, t: "Démarrage instantané", c: "text-amber-500" },
+                { Icon: Zap, t: "Demarrage instantane", c: "text-amber-500" },
               ].map(({ Icon, t, c }) => (
                 <div key={t} className="flex items-center gap-2">
                   <Icon className={`h-5 w-5 ${c}`} />
@@ -173,27 +173,10 @@ export default function Landing() {
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ duration: 1, delay: 0.3 }}
             id="demo"
-            className="relative order-1 md:order-2"
+            className="relative"
           >
             <div className="absolute -inset-4 rounded-[3rem] bg-gradient-to-tr from-brand-100/40 to-wave-100/40 blur-2xl" />
             <PhoneMock />
-
-            {/* Flottants décoratifs pour le style Pro */}
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -left-6 top-1/4 hidden rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-100 sm:flex items-center gap-3"
-            >
-              <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                <HandCoins className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase font-bold text-slate-400">
-                  Dernier versement
-                </p>
-                <p className="text-sm font-bold text-slate-800">+50 000 FCFA</p>
-              </div>
-            </motion.div>
           </motion.div>
         </div>
 

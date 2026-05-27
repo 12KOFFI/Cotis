@@ -13,6 +13,7 @@ export default function MaCarte() {
   const [loading, setLoading] = useState(true);
 
   useEffect(()=>{
+    if (!id || id === 'undefined') return;
     // Trouver le membre_id via mon-dashboard, puis la carte
     api.get(`/groupes/${id}/mon-dashboard`).then(async (r)=>{
       const membreId = r.data.membre.id;

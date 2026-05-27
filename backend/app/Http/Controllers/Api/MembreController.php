@@ -6,18 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Groupe;
 use App\Models\Membre;
 use App\Models\AdhesionFrais;
-use App\Models\Paiement;
-use App\Models\Periode;
+use App\Traits\AuthorizesGroupe;
 use Illuminate\Http\Request;
 
 class MembreController extends Controller
 {
+    use AuthorizesGroupe;
+
     public function index(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe);
-        $membres = $groupe->membres()->with('adhesion')->get()->map(function ($m) use ($groupe) {
-            $m->statut_cotisation = $this->computeStatutCotisation($m, $groupe);
-            return $m;
+        $membres = $groupe->membres()->with('adhesion')->get()->map(function ($membre) use ($groupe) {
+            $membre->statut_cotisation = $membre->computeStatutCotisation($groupe);
+            return $membre;
         });
         return response()->json(['membres' => $membres]);
     }
@@ -26,22 +27,23 @@ class MembreController extends Controller
     {
         $this->authorizeGroupe($request, $groupe);
         $data = $request->validate([
-            'nom' => 'required|string|max:120',
-            'prenom' => 'nullable|string|max:120',
-            'telephone' => 'nullable|string|max:30',
-            'email' => 'nullable|email',
-            'note' => 'nullable|string',
+            'nom'           => 'required|string|max:120',
+            'prenom'        => 'nullable|string|max:120',
+            'telephone'     => 'nullable|string|max:30',
+            'email'         => 'nullable|email',
+            'note'          => 'nullable|string',
             'montant_perso' => 'nullable|integer|min:0',
         ]);
         $data['groupe_id'] = $groupe->id;
         $data['statut'] = 'actif_non_verifie';
         $data['role'] = 'membre';
         $membre = Membre::create($data);
+
         // Create adhesion frais record if group has adhesion
         if ($groupe->adhesion_active && $groupe->adhesion_montant > 0) {
             AdhesionFrais::create([
-                'groupe_id' => $groupe->id,
-                'membre_id' => $membre->id,
+                'groupe_id'  => $groupe->id,
+                'membre_id'  => $membre->id,
                 'montant_du' => $groupe->adhesion_montant,
             ]);
         }
@@ -53,14 +55,14 @@ class MembreController extends Controller
         $this->authorizeGroupe($request, $groupe);
         abort_unless($membre->groupe_id === $groupe->id, 404);
         $data = $request->validate([
-            'nom' => 'sometimes|string',
-            'prenom' => 'nullable|string',
-            'telephone' => 'nullable|string',
-            'email' => 'nullable|email',
-            'role' => 'sometimes|in:gestionnaire,tresorier,membre',
-            'statut' => 'sometimes|in:actif_non_verifie,actif,suspendu',
+            'nom'           => 'sometimes|string',
+            'prenom'        => 'nullable|string',
+            'telephone'     => 'nullable|string',
+            'email'         => 'nullable|email',
+            'role'          => 'sometimes|in:gestionnaire,tresorier,membre',
+            'statut'        => 'sometimes|in:actif_non_verifie,actif,suspendu',
             'montant_perso' => 'nullable|integer|min:0',
-            'note' => 'nullable|string',
+            'note'          => 'nullable|string',
         ]);
         $membre->update($data);
         return response()->json(['membre' => $membre]);
@@ -89,32 +91,7 @@ class MembreController extends Controller
         $this->authorizeGroupe($request, $groupe, true);
         abort_unless($membre->groupe_id === $groupe->id, 404);
         $membre->load('paiements', 'adhesion', 'credits');
-        $membre->statut_cotisation = $this->computeStatutCotisation($membre, $groupe);
+        $membre->statut_cotisation = $membre->computeStatutCotisation($groupe);
         return response()->json(['membre' => $membre]);
-    }
-
-    protected function computeStatutCotisation(Membre $membre, Groupe $groupe): string
-    {
-        $periode = $groupe->periodes()->latest('date_debut')->first();
-        if (!$periode) return 'a_jour';
-        $du = $membre->montant_perso ?? $groupe->montant_standard;
-        $verse = Paiement::where('membre_id', $membre->id)
-            ->where('periode_id', $periode->id)
-            ->where('type', 'cotisation')
-            ->where('statut', 'reussi')
-            ->sum('montant');
-        if ($verse >= $du) return 'a_jour';
-        if ($verse > 0 && $verse < $du) return 'partiel';
-        if (now()->gt($periode->echeance) && $verse < $du) return 'en_retard';
-        return 'a_jour';
-    }
-
-    protected function authorizeGroupe(Request $request, Groupe $groupe, bool $allowMember = false): void
-    {
-        $u = $request->user();
-        if ($u->role === 'super_admin') return;
-        if ($groupe->gestionnaire_id === $u->id) return;
-        if ($allowMember && $groupe->membres()->where('user_id', $u->id)->exists()) return;
-        abort(403, 'Accès refusé');
     }
 }

@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class CaisseLedger extends Model
 {
-    protected $guarded = [];
+    protected $fillable = [
+        'caisse_id', 'groupe_id', 'type', 'montant',
+        'motif', 'date', 'paiement_id', 'auteur_id',
+    ];
     protected $casts = ['date' => 'date'];
     public function caisse() { return $this->belongsTo(Caisse::class); }
     public function groupe() { return $this->belongsTo(Groupe::class); }

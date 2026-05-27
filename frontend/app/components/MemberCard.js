@@ -34,38 +34,35 @@ export default function MemberCard({ membre, groupe, onDownload, onPrint }) {
         ref={cardRef}
         initial={{ opacity: 0, scale: 0.95 }} 
         animate={{ opacity: 1, scale: 1 }}
-        className="relative w-full max-w-[340px] overflow-hidden rounded-3xl bg-[#1e40af] p-6 text-white shadow-2xl print:shadow-none print:break-inside-avoid"
+        className="relative w-full max-w-[340px] overflow-hidden rounded-3xl wave-bg p-6 text-white shadow-xl shadow-brand-500/20 print:shadow-none print:break-inside-avoid"
       >
-        {/* Gold Bar at the top */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600" />
-        
         {/* Abstract background shapes */}
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-blue-400/20 blur-3xl" />
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-brand-400/20 blur-2xl" />
         
         <div className="relative z-10 flex items-center justify-between mb-8">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-wave-300">Carte Membre</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/60">Carte Membre</p>
             <h3 className="font-display text-lg font-extrabold leading-tight text-white">{groupe?.nom}</h3>
           </div>
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 backdrop-blur-md border border-white/20">
-            <ShieldCheck className="h-5 w-5 text-brand-300" />
+            <ShieldCheck className="h-5 w-5 text-white" />
           </div>
         </div>
 
         <div className="relative z-10 flex items-end justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-wave-300 uppercase tracking-wider mb-1">Titulaire</p>
+            <p className="text-xs text-white/60 uppercase tracking-wider mb-1">Titulaire</p>
             <p className="font-display text-xl font-bold truncate leading-none mb-1">
               {membre?.prenom} {membre?.nom}
             </p>
-            <p className="text-sm text-brand-200 capitalize font-medium">
-              {membre?.role === 'gestionnaire' ? 'Administrateur' : membre?.role}
-            </p>
+            <span className="inline-block mt-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold capitalize backdrop-blur">
+              {membre?.role === 'gestionnaire' ? 'Administrateur' : (membre?.role === 'tresorier' ? 'Trésorier' : 'Membre')}
+            </span>
           </div>
           
           {qrCodeData && (
-            <div className="shrink-0 rounded-xl bg-white p-2 shadow-inner">
+            <div className="shrink-0 rounded-2xl bg-white p-2 shadow-inner">
               <img src={qrCodeData} alt="QR Code" className="h-16 w-16" />
             </div>
           )}
@@ -73,7 +70,7 @@ export default function MemberCard({ membre, groupe, onDownload, onPrint }) {
         
         {/* Subdued footer with branding */}
         <div className="relative z-10 mt-6 border-t border-white/10 pt-3 flex justify-between items-center">
-          <p className="text-[9px] text-wave-400">Scanner pour vérifier l'authenticité</p>
+          <p className="text-[9px] text-white/50">Scanner pour vérifier l'authenticité</p>
           <p className="font-display text-[10px] font-bold tracking-widest text-white/50">CotisPro</p>
         </div>
       </motion.div>
@@ -84,17 +81,17 @@ export default function MemberCard({ membre, groupe, onDownload, onPrint }) {
           {onDownload && (
             <button 
               onClick={onDownload} 
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-wave-100 py-3 text-sm font-semibold text-wave-800 transition hover:bg-wave-200"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-wave-50 border border-wave-100 py-3.5 text-sm font-bold text-wave-800 transition hover:bg-wave-100 active:scale-95"
             >
-              <Download className="h-4 w-4" /> Télécharger
+              <Download className="h-4.5 w-4.5" /> Télécharger
             </button>
           )}
           {onPrint && (
             <button 
               onClick={onPrint} 
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-wave-100 py-3 text-sm font-semibold text-wave-800 transition hover:bg-wave-200"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-wave-50 border border-wave-100 py-3.5 text-sm font-bold text-wave-800 transition hover:bg-wave-100 active:scale-95"
             >
-              <Printer className="h-4 w-4" /> Imprimer
+              <Printer className="h-4.5 w-4.5" /> Imprimer
             </button>
           )}
         </div>

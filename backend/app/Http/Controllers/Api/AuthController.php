@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
@@ -19,7 +20,13 @@ class AuthController extends Controller
             'name' => 'required|string|max:120',
             'email' => 'required|email|unique:users,email',
             'telephone' => 'nullable|string|max:30',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()],
+        ], [
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
+            'password.letters' => 'Le mot de passe doit contenir au moins une lettre.',
+            'password.mixed' => 'Le mot de passe doit contenir une majuscule et une minuscule.',
+            'password.numbers' => 'Le mot de passe doit contenir au moins un chiffre.',
+            'password.confirmed' => 'Les mots de passe ne correspondent pas.',
         ]);
         $user = User::create([
             'name' => $data['name'],

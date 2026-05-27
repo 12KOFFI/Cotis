@@ -27,6 +27,7 @@ class JoinController extends Controller
                 'id' => $link->groupe->id,
                 'nom' => $link->groupe->nom,
                 'type' => $link->groupe->type,
+                'logo' => $link->groupe->logo,
             ],
             'expires_at' => $link->expires_at,
         ]);

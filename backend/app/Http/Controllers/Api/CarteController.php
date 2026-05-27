@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Groupe;
 use App\Models\Membre;
 use App\Models\Paiement;
+use App\Models\User;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\Writer\PngWriter;
@@ -67,6 +68,134 @@ class CarteController extends Controller
         return response()->json([
             'membre' => ['nom' => $membre->nom, 'prenom' => $membre->prenom, 'role' => $membre->role],
             'groupe' => ['nom' => $membre->groupe->nom],
+            'paiements' => $paiements,
+        ]);
+    }
+
+    // ─── Portail Gestionnaire (carte unique multi-groupes) ───
+
+    public function portail(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->role === 'gestionnaire', 403);
+
+        $groupes = $user->groupes()->withCount('membres')->get();
+
+        $frontUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $token = sha1($user->id . '.portail.' . config('app.key'));
+        $url = $frontUrl . '/carte/portail/' . $user->id . '?token=' . $token;
+
+        $builder = new Builder(
+            writer: new PngWriter(),
+            data: $url,
+            encoding: new Encoding('UTF-8'),
+            size: 260,
+            margin: 6
+        );
+        $qr = $builder->build();
+
+        return response()->json([
+            'user' => ['nom' => $user->name, 'email' => $user->email],
+            'groupes' => $groupes->map(fn($g) => [
+                'id' => $g->id,
+                'nom' => $g->nom,
+                'type' => $g->type,
+                'devise' => $g->devise,
+                'membres_count' => $g->membres_count,
+                'montant_standard' => $g->montant_standard,
+            ]),
+            'qr_png_base64' => base64_encode($qr->getString()),
+            'qr_url' => $url,
+        ]);
+    }
+
+    public function portailPdf(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->role === 'gestionnaire', 403);
+
+        $groupes = $user->groupes()->get();
+
+        $frontUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $token = sha1($user->id . '.portail.' . config('app.key'));
+        $url = $frontUrl . '/carte/portail/' . $user->id . '?token=' . $token;
+
+        $builder = new Builder(
+            writer: new PngWriter(),
+            data: $url,
+            encoding: new Encoding('UTF-8'),
+            size: 220,
+            margin: 6
+        );
+        $qr = $builder->build();
+        $qrB64 = base64_encode($qr->getString());
+
+        $pdf = Pdf::loadView('carte-portail', [
+            'user' => $user,
+            'groupes' => $groupes,
+            'qr' => $qrB64,
+        ])->setPaper([0, 0, 400, 260]);
+
+        return $pdf->download('carte-gestionnaire.pdf');
+    }
+
+    // Public : voir tous les groupes du gestionnaire
+    public function publicPortail(Request $request, User $user)
+    {
+        $expected = sha1($user->id . '.portail.' . config('app.key'));
+        abort_unless(hash_equals($expected, (string) $request->get('token')), 403);
+        abort_unless($user->role === 'gestionnaire', 403);
+
+        $groupes = $user->groupes()->withCount('membres')->get();
+
+        return response()->json([
+            'user' => ['nom' => $user->name],
+            'groupes' => $groupes->map(fn($g) => [
+                'id' => $g->id,
+                'nom' => $g->nom,
+                'type' => $g->type,
+                'devise' => $g->devise,
+                'membres_count' => $g->membres_count,
+                'montant_standard' => $g->montant_standard,
+            ]),
+        ]);
+    }
+
+    // Public : membres d'un groupe du gestionnaire
+    public function publicPortailMembres(Request $request, User $user, Groupe $groupe)
+    {
+        $expected = sha1($user->id . '.portail.' . config('app.key'));
+        abort_unless(hash_equals($expected, (string) $request->get('token')), 403);
+        abort_unless($user->role === 'gestionnaire', 403);
+        abort_unless($groupe->gestionnaire_id === $user->id, 403);
+
+        $membres = $groupe->membres()
+            ->whereIn('statut', ['actif', 'actif_non_verifie'])
+            ->orderBy('role')
+            ->orderBy('nom')
+            ->get(['id', 'nom', 'prenom', 'role', 'telephone']);
+
+        return response()->json([
+            'groupe' => ['id' => $groupe->id, 'nom' => $groupe->nom, 'devise' => $groupe->devise],
+            'membres' => $membres,
+        ]);
+    }
+
+    // Public : paiements d'un membre
+    public function publicPortailPaiements(Request $request, User $user, Groupe $groupe, Membre $membre)
+    {
+        $expected = sha1($user->id . '.portail.' . config('app.key'));
+        abort_unless(hash_equals($expected, (string) $request->get('token')), 403);
+        abort_unless($user->role === 'gestionnaire', 403);
+        abort_unless($groupe->gestionnaire_id === $user->id, 403);
+        abort_unless($membre->groupe_id === $groupe->id, 404);
+
+        $paiements = Paiement::where('membre_id', $membre->id)
+            ->latest('date_paiement')
+            ->get(['id', 'type', 'montant', 'mode', 'statut', 'date_paiement']);
+
+        return response()->json([
+            'membre' => ['id' => $membre->id, 'nom' => $membre->nom, 'prenom' => $membre->prenom],
             'paiements' => $paiements,
         ]);
     }

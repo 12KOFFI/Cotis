@@ -12,11 +12,16 @@ use App\Models\AdhesionFrais;
 use App\Models\Caisse;
 use App\Models\CaisseLedger;
 use App\Models\CreditMembre;
+use App\Traits\AuthorizesGroupe;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class PaiementController extends Controller
 {
+    use AuthorizesGroupe;
+
     public function index(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe, true);
@@ -26,23 +31,11 @@ class PaiementController extends Controller
 
     public function mesPaiements(Request $request, Groupe $groupe)
     {
-        $u = $request->user();
-        $membre = $groupe->membres()->where('user_id', $u->id)->first();
+        $currentUser = $request->user();
+        $membre = $groupe->membres()->where('user_id', $currentUser->id)->first();
         abort_unless($membre, 403);
         $paiements = Paiement::where('membre_id', $membre->id)->with('periode')->latest('date_paiement')->get();
         return response()->json(['paiements' => $paiements, 'membre' => $membre->load('adhesion', 'credits')]);
-    }
-
-    public function demandes(Request $request, Groupe $groupe)
-    {
-        $this->authorizeGroupe($request, $groupe);
-        $demandes = $groupe->paiements()
-            ->where('statut', 'en_attente')
-            ->where('enregistre_par', null)
-            ->with('membre')
-            ->latest('created_at')
-            ->get();
-        return response()->json(['demandes' => $demandes]);
     }
 
     public function preuveImage(Request $request, Groupe $groupe, Paiement $paiement)
@@ -61,172 +54,129 @@ class PaiementController extends Controller
         ]);
     }
 
-    public function storeDemande(Request $request, Groupe $groupe)
+    /* ------------------------------------------------------------------ */
+    /*  Initiation du paiement GeniusPay                                  */
+    /* ------------------------------------------------------------------ */
+
+    public function initierPaiement(Request $request, Groupe $groupe)
     {
-        $u = $request->user();
-        $membre = $groupe->membres()->where('user_id', $u->id)->first();
+        $currentUser = $request->user();
+        $membre = $groupe->membres()->where('user_id', $currentUser->id)->first();
         abort_unless($membre, 403, "Vous n'êtes pas membre de ce groupe.");
 
         $data = $request->validate([
-            'montant' => 'required|integer|min:1',
-            'mode' => 'required|in:orange_money,wave,moov,mtn',
-            'preuve' => 'required|image|mimes:jpeg,png,webp|max:5120',
-            'type' => 'required|in:cotisation,adhesion,autre',
+            'type'           => 'required|in:cotisation,adhesion',
+            'montant'        => 'nullable|integer|min:1',
+            'montant_envoye' => 'nullable|integer|min:1',
         ]);
 
         if ($data['type'] === 'cotisation' && $groupe->adhesion_active) {
-            $ad = $membre->adhesion;
-            abort_if($ad && $ad->statut !== 'paye', 422, "Droit d'adhésion non réglé. Veuillez d'abord régler l'adhésion.");
+            $adhesionFrais = $membre->adhesion;
+            abort_if($adhesionFrais && $adhesionFrais->statut !== 'paye', 422, "Droit d'adhésion non réglé. Veuillez d'abord régler l'adhésion.");
         }
 
-        $path = $request->file('preuve')->store('preuves', 'public');
-
-        $paiement = Paiement::create([
-            'groupe_id' => $groupe->id,
-            'membre_id' => $membre->id,
-            'type' => $data['type'],
-            'montant' => $data['montant'],
-            'mode' => $data['mode'],
-            'statut' => 'en_attente',
-            'date_paiement' => now()->toDateString(),
-            'preuve_path' => $path,
-            'note' => 'Soumis par le membre',
-        ]);
-
-        return response()->json(['paiement' => $paiement], 201);
-    }
-
-    public function validerDemande(Request $request, Groupe $groupe, Paiement $paiement)
-    {
-        $this->authorizeGroupe($request, $groupe);
-        abort_unless($paiement->groupe_id === $groupe->id, 404);
-        abort_unless($paiement->statut === 'en_attente', 422, 'Cette demande a déjà été traitée.');
-
         $groupe->ensurePeriodsUpToDate();
+        $montant = (int) ($data['montant'] ?? 0);
+        if ($montant <= 0) {
+            $montant = $data['type'] === 'adhesion'
+                ? max(0, (int) (($membre->adhesion?->montant_du ?? $groupe->adhesion_montant) - ($membre->adhesion?->montant_paye ?? 0)))
+                : $this->resteCotisation($groupe, $membre);
+        }
+        
+        // Sécurité : Recalcul strict côté serveur pour éviter les manipulations de prix (Parameter Tampering)
+        $frais = (int) ceil(($montant * 0.035) + 100);
+        $montantEnvoye = $montant + $frais;
 
-        return DB::transaction(function () use ($groupe, $paiement, $request) {
-            $paiement->update([
-                'statut' => 'reussi',
-                'valide_par' => $request->user()->id,
-                'valide_at' => now(),
-                'enregistre_par' => $request->user()->id,
+        abort_if($montant <= 0, 422, 'Aucun montant à payer.');
+
+        $apiKey    = config('services.geniuspay.key');
+        $apiSecret = config('services.geniuspay.secret');
+        $baseUrl   = config('services.geniuspay.base_url');
+        abort_unless($apiKey && $apiSecret, 500, 'Configuration Genius Pay manquante.');
+
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+
+        $response = Http::when(app()->environment('local'), function ($client) {
+                return $client->withoutVerifying();
+            })
+            ->withHeaders([
+                'X-API-Key'    => $apiKey,
+                'X-API-Secret' => $apiSecret,
+                'Accept'       => 'application/json',
+                'Content-Type' => 'application/json',
+            ])
+            ->post("{$baseUrl}/merchant/payments", [
+                'amount'         => $montantEnvoye, // Montant total facturé au client
+                'currency'       => 'XOF',
+                'payment_method' => 'wave',
+                'gateway'        => 'wave',
+                'description'    => 'Paiement ' . $data['type'] . ' - ' . $membre->nom,
+                'success_url'    => $frontendUrl . '/paiement/succes',
+                'cancel_url'     => $frontendUrl . '/paiement/erreur',
+                'metadata'       => [
+                    'groupe_id' => $groupe->id,
+                    'membre_id' => $membre->id,
+                    'type'      => $data['type'],
+                    'montant'   => $montant, // Montant qui sera crédité à la caisse (Le bénéficiaire reçoit)
+                    'frais'     => $frais, // Commission de la plateforme
+                ],
             ]);
 
-            $membre = $paiement->membre;
-
-            // Imputation sur période
-            $reste = $paiement->montant;
-            if ($paiement->type === 'cotisation') {
-                $periodes = $groupe->periodes()->orderBy('date_debut')->get();
-                foreach ($periodes as $p) {
-                    if ($reste <= 0) break;
-                    $du = $membre->montant_perso ?? $groupe->montant_standard;
-                    $deja = Paiement::where('membre_id', $membre->id)
-                        ->where('periode_id', $p->id)
-                        ->where('type', 'cotisation')
-                        ->where('statut', 'reussi')
-                        ->where('id', '!=', $paiement->id)
-                        ->sum('montant');
-                    $manquant = max(0, $du - $deja);
-                    if ($manquant <= 0) continue;
-                    $apply = min($manquant, $reste);
-                    $paiement->periode_id = $p->id;
-                    $reste -= $apply;
-                }
-                if ($reste > 0) {
-                    CreditMembre::create([
-                        'groupe_id' => $groupe->id,
-                        'membre_id' => $membre->id,
-                        'montant' => $reste,
-                        'periode_source_id' => optional($periodes->last())->id,
-                    ]);
-                }
-                if ($membre->statut === 'actif_non_verifie') {
-                    $membre->statut = 'actif';
-                    $membre->save();
-                }
-            }
-
-            // Adhesion
-            if ($paiement->type === 'adhesion' && $groupe->adhesion_active) {
-                $ad = AdhesionFrais::firstOrCreate(
-                    ['groupe_id' => $groupe->id, 'membre_id' => $membre->id],
-                    ['montant_du' => $groupe->adhesion_montant]
-                );
-                $ad->montant_paye += $paiement->montant;
-                if ($ad->montant_paye >= $ad->montant_du) {
-                    $ad->statut = 'paye';
-                    $ad->paye_at = now();
-                }
-                $ad->save();
-            }
-
-            $paiement->save();
-
-            // Caisse + ledger
-            $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
-            CaisseLedger::create([
-                'caisse_id' => $caisse->id,
-                'groupe_id' => $groupe->id,
-                'type' => 'entree',
-                'montant' => $paiement->montant,
-                'motif' => 'Validation paiement - ' . ($membre->full_name),
-                'date' => now()->toDateString(),
-                'paiement_id' => $paiement->id,
-                'auteur_id' => $request->user()->id,
+        if (!$response->successful()) {
+            Log::error('GeniusPay: échec initiation paiement', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
             ]);
-            $caisse->solde += $paiement->montant;
-            $caisse->save();
+            abort(502, 'Le service de paiement est temporairement indisponible.');
+        }
 
-            PaiementLog::create([
-                'paiement_id' => $paiement->id,
-                'auteur_id' => $request->user()->id,
-                'avant' => ['statut' => 'en_attente'],
-                'apres' => $paiement->toArray(),
-                'action' => 'validation',
+        $payload = $response->json();
+        $paymentData = $payload['data'] ?? [];
+        $transactionId = $paymentData['id'] ?? $paymentData['reference'] ?? $payload['id'] ?? null;
+
+        if ($transactionId) {
+            Paiement::create([
+                'groupe_id'      => $groupe->id,
+                'membre_id'      => $membre->id,
+                'periode_id'     => null,
+                'type'           => $data['type'],
+                'montant'        => $montant,
+                'mode'           => 'wave',
+                'statut'         => 'en_attente',
+                'date_paiement'  => now()->toDateString(),
+                'transaction_id' => $transactionId,
+                'note'           => 'Paiement en ligne initié via GeniusPay',
+                'enregistre_par' => $currentUser->id,
             ]);
+        }
 
-            return response()->json(['paiement' => $paiement->load('membre')]);
-        });
+        return response()->json([
+            'checkout_url' => $paymentData['checkout_url'] ?? $paymentData['payment_url'] ?? $payload['checkout_url'] ?? null,
+            'reference'    => $transactionId,
+        ]);
     }
 
-    public function refuserDemande(Request $request, Groupe $groupe, Paiement $paiement)
-    {
-        $this->authorizeGroupe($request, $groupe);
-        abort_unless($paiement->groupe_id === $groupe->id, 404);
-        abort_unless($paiement->statut === 'en_attente', 422, 'Cette demande a déjà été traitée.');
-
-        $data = $request->validate(['motif_refus' => 'nullable|string|max:500']);
-
-        $paiement->update([
-            'statut' => 'echoue',
-            'valide_par' => $request->user()->id,
-            'valide_at' => now(),
-            'note' => $data['motif_refus'] ? 'Refusé : ' . $data['motif_refus'] : 'Refusé par le gestionnaire',
-        ]);
-
-        PaiementLog::create([
-            'paiement_id' => $paiement->id,
-            'auteur_id' => $request->user()->id,
-            'avant' => ['statut' => 'en_attente'],
-            'apres' => $paiement->toArray(),
-            'action' => 'refus',
-        ]);
-
-        return response()->json(['paiement' => $paiement]);
-    }
+    /* ------------------------------------------------------------------ */
+    /*  Enregistrement manuel (gestionnaire / trésorier)                   */
+    /* ------------------------------------------------------------------ */
 
     public function store(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe);
         $data = $request->validate([
-            'membre_id' => 'required|exists:membres,id',
-            'type' => 'required|in:cotisation,adhesion,autre',
-            'montant' => 'required|integer|min:1',
-            'mode' => 'required|in:cash,wave,virement,autre',
-            'date_paiement' => 'required|date',
-            'note' => 'nullable|string',
+            'membre_id'      => 'required|exists:membres,id',
+            'type'           => 'required|in:cotisation,adhesion,autre',
+            'montant'        => 'required|integer|min:1',
+            'mode'           => 'required|in:cash,wave,virement,autre',
+            'date_paiement'  => 'required|date',
+            'note'           => 'nullable|string',
+            'justificatif'   => 'nullable|file|mimes:jpeg,png,webp,pdf|max:5120',
         ]);
+
+        if ($request->hasFile('justificatif')) {
+            $data['preuve_path'] = $request->file('justificatif')->store('preuves', 'public');
+        }
+
         $membre = Membre::findOrFail($data['membre_id']);
         abort_unless($membre->groupe_id === $groupe->id, 422);
         $groupe->ensurePeriodsUpToDate();
@@ -234,145 +184,233 @@ class PaiementController extends Controller
         return DB::transaction(function () use ($groupe, $membre, $data, $request) {
             // Blocage : non-adhérent ne peut pas payer de cotisations si adhésion non payée
             if ($data['type'] === 'cotisation' && $groupe->adhesion_active) {
-                $ad = $membre->adhesion;
-                abort_if($ad && $ad->statut !== 'paye', 422, "Droit d'adhésion non réglé. Veuillez d'abord régler l'adhésion.");
+                $adhesionFrais = $membre->adhesion;
+                abort_if($adhesionFrais && $adhesionFrais->statut !== 'paye', 422, "Droit d'adhésion non réglé. Veuillez d'abord régler l'adhésion.");
             }
 
-            $paiements = [];
-            $reste = $data['montant'];
-
-            if ($data['type'] === 'adhesion') {
-                $ad = AdhesionFrais::firstOrCreate(
-                    ['groupe_id' => $groupe->id, 'membre_id' => $membre->id],
-                    ['montant_du' => $groupe->adhesion_montant]
-                );
-                $ad->montant_paye += $reste;
-                if ($ad->montant_paye >= $ad->montant_du) {
-                    $ad->statut = 'paye';
-                    $ad->paye_at = now();
-                    if ($membre->statut === 'actif_non_verifie') {
-                        $membre->statut = 'actif';
-                        $membre->save();
-                    }
-                }
-                $ad->save();
-                $paiements[] = $this->createPaiement($groupe, $membre, null, $data, $reste, $request->user()->id);
-                $reste = 0;
-            } else {
-                // Cotisation : imputation par ancienneté sur périodes impayées
-                $periodes = $groupe->periodes()->orderBy('date_debut')->get();
-                foreach ($periodes as $p) {
-                    if ($reste <= 0) break;
-                    $du = $membre->montant_perso ?? $groupe->montant_standard;
-                    $deja = Paiement::where('membre_id', $membre->id)
-                        ->where('periode_id', $p->id)
-                        ->where('type', 'cotisation')
-                        ->where('statut', 'reussi')->sum('montant');
-                    $manquant = max(0, $du - $deja);
-                    if ($manquant <= 0) continue;
-                    $apply = min($manquant, $reste);
-                    $paiements[] = $this->createPaiement($groupe, $membre, $p, $data, $apply, $request->user()->id);
-                    $reste -= $apply;
-                }
-                // Excédent -> crédit reporté
-                if ($reste > 0) {
-                    CreditMembre::create([
-                        'groupe_id' => $groupe->id,
-                        'membre_id' => $membre->id,
-                        'montant' => $reste,
-                        'periode_source_id' => optional($periodes->last())->id,
-                    ]);
-                    // On enregistre quand même en autre
-                    $paiements[] = $this->createPaiement($groupe, $membre, null, array_merge($data, ['type' => 'autre']), $reste, $request->user()->id);
-                    $reste = 0;
-                }
-                if ($membre->statut === 'actif_non_verifie') {
-                    $membre->statut = 'actif';
-                    $membre->save();
-                }
-            }
+            $paiements = $this->imputerPaiement(
+                $groupe,
+                $membre,
+                $data,
+                $data['montant'],
+                $request->user()->id
+            );
 
             return response()->json(['paiements' => $paiements], 201);
         });
     }
 
-    protected function createPaiement(Groupe $groupe, Membre $membre, ?Periode $periode, array $data, int $montant, int $userId): Paiement
+    /* ------------------------------------------------------------------ */
+    /*  Confirmation automatique via webhook                               */
+    /* ------------------------------------------------------------------ */
+
+    public function enregistrerPaiementConfirme(Groupe $groupe, Membre $membre, string $type, int $montant, string $transactionId): array
     {
-        $p = Paiement::create([
-            'groupe_id' => $groupe->id,
-            'membre_id' => $membre->id,
-            'periode_id' => $periode?->id,
-            'type' => $data['type'],
-            'montant' => $montant,
-            'mode' => $data['mode'],
-            'statut' => 'reussi',
-            'date_paiement' => $data['date_paiement'],
-            'note' => $data['note'] ?? null,
-            'enregistre_par' => $userId,
-        ]);
-        // Ledger entry + update caisse
-        $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
-        CaisseLedger::create([
-            'caisse_id' => $caisse->id,
-            'groupe_id' => $groupe->id,
-            'type' => 'entree',
-            'montant' => $montant,
-            'motif' => ucfirst($data['type']) . ' - ' . ($membre->full_name),
-            'date' => $data['date_paiement'],
-            'paiement_id' => $p->id,
-            'auteur_id' => $userId,
-        ]);
-        $caisse->solde += $montant;
-        $caisse->save();
-        return $p;
+        $groupe->ensurePeriodsUpToDate();
+
+        return DB::transaction(function () use ($groupe, $membre, $type, $montant, $transactionId) {
+            if (Paiement::where('transaction_id', $transactionId)->where('statut', 'reussi')->exists()) {
+                return ['idempotent' => true];
+            }
+
+            // Supprimer la transaction temporaire en attente pour la recréer en statut réussi
+            Paiement::where('transaction_id', $transactionId)->where('statut', 'en_attente')->delete();
+
+            $data = [
+                'type'           => $type,
+                'mode'           => 'wave',
+                'date_paiement'  => now()->toDateString(),
+                'note'           => 'Paiement Genius Pay confirmé automatiquement',
+            ];
+
+            $paiements = $this->imputerPaiement($groupe, $membre, $data, $montant, null, $transactionId);
+
+            return ['paiements' => $paiements];
+        });
     }
+
+    /* ------------------------------------------------------------------ */
+    /*  Modification d'un paiement existant                                */
+    /* ------------------------------------------------------------------ */
 
     public function update(Request $request, Groupe $groupe, Paiement $paiement)
     {
         $this->authorizeGroupe($request, $groupe);
         abort_unless($paiement->groupe_id === $groupe->id, 404);
+
         $data = $request->validate([
-            'montant' => 'sometimes|integer|min:0',
-            'mode' => 'sometimes|in:cash,wave,virement,autre',
-            'note' => 'nullable|string',
-            'date_paiement' => 'sometimes|date',
+            'montant'        => 'sometimes|integer|min:0',
+            'mode'           => 'sometimes|in:cash,wave,virement,autre',
+            'note'           => 'nullable|string',
+            'date_paiement'  => 'sometimes|date',
         ]);
+
         $avant = $paiement->toArray();
         $delta = isset($data['montant']) ? $data['montant'] - $paiement->montant : 0;
         $paiement->update(array_merge($data, ['modifie' => true]));
+
         PaiementLog::create([
             'paiement_id' => $paiement->id,
-            'auteur_id' => $request->user()->id,
-            'avant' => $avant,
-            'apres' => $paiement->toArray(),
-            'action' => 'update',
+            'auteur_id'   => $request->user()->id,
+            'avant'       => $avant,
+            'apres'       => $paiement->toArray(),
+            'action'      => 'update',
         ]);
+
         if ($delta !== 0) {
             $caisse = $groupe->caisse;
             if ($caisse) {
                 CaisseLedger::create([
-                    'caisse_id' => $caisse->id,
-                    'groupe_id' => $groupe->id,
-                    'type' => $delta > 0 ? 'entree' : 'sortie',
-                    'montant' => abs($delta),
-                    'motif' => 'Ajustement paiement #' . $paiement->id,
-                    'date' => now()->toDateString(),
+                    'caisse_id'   => $caisse->id,
+                    'groupe_id'   => $groupe->id,
+                    'type'        => $delta > 0 ? 'entree' : 'sortie',
+                    'montant'     => abs($delta),
+                    'motif'       => 'Ajustement paiement #' . $paiement->id,
+                    'date'        => now()->toDateString(),
                     'paiement_id' => $paiement->id,
-                    'auteur_id' => $request->user()->id,
+                    'auteur_id'   => $request->user()->id,
                 ]);
-                $caisse->solde += $delta;
-                $caisse->save();
             }
         }
+
         return response()->json(['paiement' => $paiement]);
     }
 
-    protected function authorizeGroupe(Request $request, Groupe $groupe, bool $allowMember = false): void
+    /* ================================================================== */
+    /*  MÉTHODES PRIVÉES                                                   */
+    /* ================================================================== */
+
+    /**
+     * Logique d'imputation unique — utilisée par store() ET enregistrerPaiementConfirme().
+     * Gère : adhésion, cotisation (ancienneté), excédent en crédit, activation du membre.
+     *
+     * @return Paiement[]
+     */
+    private function imputerPaiement(
+        Groupe $groupe,
+        Membre $membre,
+        array $data,
+        int $montant,
+        ?int $userId,
+        ?string $transactionId = null
+    ): array {
+        $paiements = [];
+        $reste = $montant;
+
+        if ($data['type'] === 'adhesion') {
+            $adhesionFrais = AdhesionFrais::firstOrCreate(
+                ['groupe_id' => $groupe->id, 'membre_id' => $membre->id],
+                ['montant_du' => $groupe->adhesion_montant]
+            );
+            $adhesionFrais->montant_paye += $reste;
+            if ($adhesionFrais->montant_paye >= $adhesionFrais->montant_du) {
+                $adhesionFrais->statut = 'paye';
+                $adhesionFrais->paye_at = now();
+                if ($membre->statut === 'actif_non_verifie') {
+                    $membre->statut = 'actif';
+                    $membre->save();
+                }
+            }
+            $adhesionFrais->save();
+
+            $paiement = $this->createPaiement($groupe, $membre, null, $data, $reste, $userId);
+            if ($transactionId) {
+                $paiement->transaction_id = $transactionId;
+                $paiement->save();
+            }
+            $paiements[] = $paiement;
+
+        } else {
+            // Cotisation : imputation par ancienneté sur périodes impayées
+            $periodes = $groupe->periodes()->orderBy('date_debut')->get();
+            foreach ($periodes as $periode) {
+                if ($reste <= 0) break;
+                $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
+                $montantDejaVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)->sum('montant');
+                $manquant = max(0, $montantDu - $montantDejaVerse);
+                if ($manquant <= 0) continue;
+
+                $aImputer = min($manquant, $reste);
+                $paiement = $this->createPaiement($groupe, $membre, $periode, $data, $aImputer, $userId);
+                if ($transactionId && empty($paiements)) {
+                    $paiement->transaction_id = $transactionId;
+                    $paiement->save();
+                }
+                $paiements[] = $paiement;
+                $reste -= $aImputer;
+            }
+
+            // Excédent -> crédit reporté
+            if ($reste > 0) {
+                CreditMembre::create([
+                    'groupe_id'         => $groupe->id,
+                    'membre_id'         => $membre->id,
+                    'montant'           => $reste,
+                    'periode_source_id' => optional($periodes->last())->id,
+                ]);
+                $paiement = $this->createPaiement($groupe, $membre, null, array_merge($data, ['type' => 'autre']), $reste, $userId);
+                if ($transactionId && empty($paiements)) {
+                    $paiement->transaction_id = $transactionId;
+                    $paiement->save();
+                }
+                $paiements[] = $paiement;
+            }
+
+            if ($membre->statut === 'actif_non_verifie') {
+                $membre->statut = 'actif';
+                $membre->save();
+            }
+        }
+
+        return $paiements;
+    }
+
+    /**
+     * Crée un paiement + son écriture dans le ledger de caisse.
+     */
+    protected function createPaiement(Groupe $groupe, Membre $membre, ?Periode $periode, array $data, int $montant, ?int $userId): Paiement
     {
-        $u = $request->user();
-        if ($u->role === 'super_admin') return;
-        if ($groupe->gestionnaire_id === $u->id) return;
-        if ($allowMember && $groupe->membres()->where('user_id', $u->id)->exists()) return;
-        abort(403);
+        $paiement = Paiement::create([
+            'groupe_id'      => $groupe->id,
+            'membre_id'      => $membre->id,
+            'periode_id'     => $periode?->id,
+            'type'           => $data['type'],
+            'montant'        => $montant,
+            'mode'           => $data['mode'],
+            'statut'         => 'reussi',
+            'date_paiement'  => $data['date_paiement'],
+            'note'           => $data['note'] ?? null,
+            'preuve_path'    => $data['preuve_path'] ?? null,
+            'enregistre_par' => $userId,
+        ]);
+
+        // Ledger entry
+        $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
+        CaisseLedger::create([
+            'caisse_id'   => $caisse->id,
+            'groupe_id'   => $groupe->id,
+            'type'        => 'entree',
+            'montant'     => $montant,
+            'motif'       => ucfirst($data['type']) . ' - ' . ($membre->full_name),
+            'date'        => $data['date_paiement'],
+            'paiement_id' => $paiement->id,
+            'auteur_id'   => $userId,
+        ]);
+
+        return $paiement;
+    }
+
+    /**
+     * Calcule le montant total restant dû sur toutes les périodes.
+     */
+    protected function resteCotisation(Groupe $groupe, Membre $membre): int
+    {
+        $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
+        $reste = 0;
+        foreach ($groupe->periodes()->orderBy('date_debut')->get() as $periode) {
+            $montantDejaVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)->sum('montant');
+            $reste += max(0, $montantDu - $montantDejaVerse);
+        }
+        return $reste;
     }
 }

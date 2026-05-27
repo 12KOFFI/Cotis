@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft, Check, Plus, Calendar, Trash2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Plus, Calendar, Trash2, ImageUp, X } from "lucide-react";
 import AppShell from "../../../components/AppShell";
 import PhoneInput from "../../../components/PhoneInput";
 import { api } from "../../../lib/api";
@@ -43,6 +43,20 @@ export default function NewGroupe() {
   });
 
   function upd(k, v) { setF((p) => ({ ...p, [k]: v })); }
+
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const logoRef = useRef(null);
+
+  function handleLogo(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) return;
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => { setLogoPreview(reader.result); upd("logo", reader.result); };
+    reader.readAsDataURL(file);
+  }
 
   async function submit() {
     setErr(""); setLoading(true);
@@ -97,6 +111,23 @@ export default function NewGroupe() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div>
+              <label className="label">Logo du groupe (optionnel)</label>
+              {logoPreview ? (
+                <div className="relative mb-3 inline-block">
+                  <img src={logoPreview} alt="Logo" className="h-20 w-20 rounded-2xl border-2 border-wave-200 object-cover" />
+                  <button type="button" onClick={() => { setLogoPreview(null); setLogoFile(null); upd("logo", null); }} className="absolute -top-2 -right-2 grid h-6 w-6 place-items-center rounded-full bg-red-500 text-white shadow">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => logoRef.current?.click()} className="mb-3 flex items-center gap-3 rounded-2xl border-2 border-dashed border-wave-200 p-4 transition hover:border-wave-400">
+                  <ImageUp className="h-6 w-6 text-wave-400" />
+                  <span className="text-sm font-semibold text-wave-600">Choisir un logo</span>
+                </button>
+              )}
+              <input ref={logoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleLogo} />
             </div>
             <div>
               <label className="label">Description (optionnel)</label>
