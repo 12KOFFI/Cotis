@@ -18,12 +18,17 @@ export default function AppHome() {
 
   function fetchGroupes() {
     api.get("/groupes").then((r) => {
-      setGroupes(r.data.groupes || []);
       const u = auth.getUser();
       if (u && u.role === "membre" && r.data.groupes?.length === 1 && window.location.pathname === "/app") {
         router.push(`/app/m/${r.data.groupes[0].id}`);
+        // Ne pas appeler setLoading(false) ici pour éviter le flash
+        return; 
       }
-    }).finally(() => setLoading(false));
+      setGroupes(r.data.groupes || []);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
   }
 
   useEffect(() => {
