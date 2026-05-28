@@ -234,6 +234,8 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
         type: needsAdhesion ? "adhesion" : "cotisation",
       });
       if (response.data.checkout_url) {
+        // Sauvegarder le groupe pour la redirection après paiement
+        localStorage.setItem('cp_last_groupe', groupeId);
         window.location.href = response.data.checkout_url;
       } else {
         setError("Lien de paiement Wave indisponible.");

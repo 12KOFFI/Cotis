@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\GeniusPayWebhookController;
 use App\Http\Controllers\Api\MembreAccesController;
 
+use App\Http\Controllers\Api\AdminMerchantController;
+
 // Public
 Route::middleware('throttle:10,1')->post('/auth/register', [AuthController::class, 'register']);
 Route::middleware('throttle:6,1')->post('/auth/login', [AuthController::class, 'login']);
@@ -75,6 +77,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Caisse
     Route::get('/groupes/{groupe}/caisse', [CaisseController::class, 'show']);
     Route::post('/groupes/{groupe}/caisse/decaissement', [CaisseController::class, 'decaisser']);
+    Route::get('/groupes/{groupe}/caisse/calculate-fees', [CaisseController::class, 'calculateFees']);
+    Route::post('/groupes/{groupe}/caisse/payout', [CaisseController::class, 'payout']);
 
     // Carte virtuelle
     Route::get('/groupes/{groupe}/membres/{membre}/carte', [CarteController::class, 'show']);
@@ -91,5 +95,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/overview', [SuperAdminController::class, 'overview']);
         Route::get('/users', [SuperAdminController::class, 'users']);
         Route::get('/groupes', [SuperAdminController::class, 'groupes']);
+        Route::get('/payouts', [SuperAdminController::class, 'payouts']);
+        Route::get('/groupes-soldes', [SuperAdminController::class, 'groupesSoldes']);
+
+        // Merchant Gateway (TÂCHE 1 — GeniusPay)
+        Route::get('/merchant/dashboard', [AdminMerchantController::class, 'dashboard']);
+        Route::get('/merchant/payouts', [AdminMerchantController::class, 'payouts']);
+        Route::get('/merchant/payouts/{reference}', [AdminMerchantController::class, 'payoutDetails']);
+        Route::get('/merchant/transactions/{reference}', [AdminMerchantController::class, 'transactionDetails']);
     });
 });
+

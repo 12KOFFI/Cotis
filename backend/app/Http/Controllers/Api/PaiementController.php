@@ -25,7 +25,7 @@ class PaiementController extends Controller
     public function index(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe, true);
-        $paiements = $groupe->paiements()->with('membre', 'periode')->latest('date_paiement')->limit(200)->get();
+        $paiements = $groupe->paiements()->with('membre', 'periode')->latest('created_at')->limit(200)->get();
         return response()->json(['paiements' => $paiements]);
     }
 
@@ -34,7 +34,7 @@ class PaiementController extends Controller
         $currentUser = $request->user();
         $membre = $groupe->membres()->where('user_id', $currentUser->id)->first();
         abort_unless($membre, 403);
-        $paiements = Paiement::where('membre_id', $membre->id)->with('periode')->latest('date_paiement')->get();
+        $paiements = Paiement::where('membre_id', $membre->id)->with('periode')->latest('created_at')->get();
         return response()->json(['paiements' => $paiements, 'membre' => $membre->load('adhesion', 'credits')]);
     }
 

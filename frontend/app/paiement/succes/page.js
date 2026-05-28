@@ -1,20 +1,36 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function PaiementSucces() {
   const router = useRouter();
+  const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    // Redirection automatique vers l'espace membre après 5 secondes
-    const timer = setTimeout(() => {
-      router.push('/app');
-    }, 5000);
-    return () => clearTimeout(timer);
+    // Récupérer le dernier groupe visité pour rediriger vers l'espace membre
+    const lastGroupeId = typeof window !== 'undefined' ? localStorage.getItem('cp_last_groupe') : null;
+    const redirectUrl = lastGroupeId ? `/app/m/${lastGroupeId}` : '/app';
+
+    // Compte à rebours visuel
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          router.push(redirectUrl);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [router]);
+
+  const lastGroupeId = typeof window !== 'undefined' ? localStorage.getItem('cp_last_groupe') : null;
+  const redirectUrl = lastGroupeId ? `/app/m/${lastGroupeId}` : '/app';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 font-sans px-4">
@@ -32,11 +48,11 @@ export default function PaiementSucces() {
         </p>
 
         <p className="text-slate-500 text-xs mb-6">
-          Vous serez redirigé automatiquement dans quelques secondes…
+          Redirection automatique dans {countdown} seconde{countdown > 1 ? 's' : ''}…
         </p>
 
         <Link
-          href="/app"
+          href={redirectUrl}
           className="inline-block bg-gradient-to-r from-indigo-500 to-violet-500 text-white no-underline px-7 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 active:scale-95"
         >
           Retour à mon espace

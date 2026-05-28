@@ -33,15 +33,7 @@ import {
 import PhoneInput from "../../../components/PhoneInput";
 import AppShell from "../../../components/AppShell";
 import { api, fcfa, auth, API_BASE } from "../../../lib/api";
-
-const fmtDate = (d) =>
-  d
-    ? new Date(d).toLocaleDateString("fr-FR", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "";
+import { fmtDate, fmtTime } from "../../../lib/utils";
 
 const STATUT_COLORS = {
   a_jour: "bg-brand-50 text-brand-600",
@@ -297,60 +289,106 @@ export default function GestionnaireDashboard() {
           )}
         </div>
         
-        {data.dernieres_transactions && data.dernieres_transactions.length > 0 ? (
-          <div className="space-y-2.5">
-            {data.dernieres_transactions.map((tx, idx) => {
-              const cfg = TX_STATUS_CFG[tx.statut] || TX_STATUS_CFG.reussi;
-              const IconComp = cfg.Icon;
-              return (
-                <div key={tx.id} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-wave-100 active:scale-[0.98] transition-transform">
-                  <div className="flex items-center gap-3.5">
-                    <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${cfg.cls}`}>
-                      <IconComp className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-wave-900">{tx.membre?.prenom} {tx.membre?.nom}</p>
-                      <p className="text-[11px] font-medium text-wave-500 capitalize flex items-center gap-2 flex-wrap">
-                        <span>{fmtDate(tx.date_paiement)} • {tx.mode}</span>
-                        {tx.statut !== "reussi" && (
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                            tx.statut === "en_attente" 
-                              ? "bg-amber-50 text-amber-600 border border-amber-100" 
-                              : tx.statut === "echoue" 
-                              ? "bg-rose-50 text-rose-600 border border-rose-100"
-                              : "bg-slate-100 text-slate-600 border border-slate-200"
-                          }`}>
-                            {cfg.label}
-                          </span>
-                        )}
-                      </p>
-                    </div>
+        {data.dernieres_transactions && data.dernieres_transactions.length > 0 ? (() => {
+          // Grouper par date (style Wave)
+          const sorted = [...data.dernieres_transactions].sort((a, b) => {
+            const da = new Date(a.created_at || a.date_paiement);
+            const db = new Date(b.created_at || b.date_paiement);
+            return db - da;
+          });
+          const groups = [];
+          let currentDate = null;
+          let currentGroup = null;
+          for (const tx of sorted) {
+            const d = new Date(tx.created_at || tx.date_paiement);
+            const dateKey = d.toISOString().slice(0, 10);
+            if (dateKey !== currentDate) {
+              currentDate = dateKey;
+              currentGroup = { date: dateKey, transactions: [] };
+              groups.push(currentGroup);
+            }
+            currentGroup.transactions.push(tx);
+          }
+          const formatGroupDate = (dateStr) => {
+            const d = new Date(dateStr);
+            const now = new Date();
+            const today = now.toISOString().slice(0, 10);
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().slice(0, 10);
+            if (dateStr === today) return "Aujourd'hui";
+            if (dateStr === yesterdayStr) return "Hier";
+            return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+          };
+
+          return (
+            <div className="space-y-5">
+              {groups.map((group) => (
+                <div key={group.date}>
+                  <div className="flex items-center gap-3 mb-2.5 px-1">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-wave-400 whitespace-nowrap">
+                      {formatGroupDate(group.date)}
+                    </p>
+                    <div className="flex-1 h-px bg-wave-100"></div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {tx.statut === "en_attente" && tx.transaction_id && (
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            const res = await api.post(`/groupes/${id}/paiements/${tx.id}/verifier`);
-                            alert(res.data.message || "Vérification effectuée.");
-                            loadDashboard();
-                          } catch (err) {
-                            alert(err.response?.data?.message || "Erreur lors de la vérification.");
-                          }
-                        }}
-                        className="rounded-xl bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition whitespace-nowrap"
-                      >
-                        Vérifier
-                      </button>
-                    )}
-                    <p className={`text-base font-extrabold ${cfg.textCls}`}>{fcfa(tx.montant).replace(' FCFA', '')}</p>
+                  <div className="space-y-2.5">
+                    {group.transactions.map((tx) => {
+                      const cfg = TX_STATUS_CFG[tx.statut] || TX_STATUS_CFG.reussi;
+                      const IconComp = cfg.Icon;
+                      const heureStr = fmtTime(tx.created_at || tx.date_paiement);
+                      return (
+                        <div key={tx.id} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-wave-100 active:scale-[0.98] transition-transform">
+                          <div className="flex items-center gap-3.5">
+                            <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${cfg.cls}`}>
+                              <IconComp className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-wave-900">{tx.membre?.prenom} {tx.membre?.nom}</p>
+                              <p className="text-[11px] font-medium text-wave-500 capitalize flex items-center gap-2 flex-wrap">
+                                <span>{heureStr} • {tx.mode}</span>
+                                {tx.statut !== "reussi" && (
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                    tx.statut === "en_attente" 
+                                      ? "bg-amber-50 text-amber-600 border border-amber-100" 
+                                      : tx.statut === "echoue" 
+                                      ? "bg-rose-50 text-rose-600 border border-rose-100"
+                                      : "bg-slate-100 text-slate-600 border border-slate-200"
+                                  }`}>
+                                    {cfg.label}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {tx.statut === "en_attente" && tx.transaction_id && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await api.post(`/groupes/${id}/paiements/${tx.id}/verifier`);
+                                    alert(res.data.message || "Vérification effectuée.");
+                                    loadDashboard();
+                                  } catch (err) {
+                                    alert(err.response?.data?.message || "Erreur lors de la vérification.");
+                                  }
+                                }}
+                                className="rounded-xl bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition whitespace-nowrap"
+                              >
+                                Vérifier
+                              </button>
+                            )}
+                            <p className={`text-base font-extrabold ${cfg.textCls}`}>{fcfa(tx.montant).replace(' FCFA', '')}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
+              ))}
+            </div>
+          );
+        })() : (
           <div className="rounded-3xl bg-wave-50 py-10 text-center border-2 border-dashed border-wave-200">
             <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-white text-wave-400 shadow-sm">
               <History className="h-6 w-6" />

@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Users, Building2, Wallet, Send, BadgePercent } from "lucide-react";
+import { Users, Building2, Wallet, Send, BadgePercent, Zap } from "lucide-react";
 import AppShell from "../../components/AppShell";
 import { api, auth, fcfa } from "../../lib/api";
 
@@ -42,6 +43,35 @@ export default function SuperAdmin() {
             <KPI Icon={Wallet} label="Volume encaissé" value={fcfa(data.paiements_total)}/>
             <KPI Icon={BadgePercent} label="Commissions Nettes" value={fcfa(data.commissions_total || 0)} sub={`+ ${fcfa(data.frais_gateway_total || 0)} frais payés`} tone="success"/>
             <KPI Icon={Send} label="Invitations" value={data.invitations_envoyees}/>
+          </div>
+
+          <div className="mt-4 space-y-2.5">
+            <Link href="/app/admin/merchant" className="block">
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                className="rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 p-4 text-white shadow-lg shadow-brand-500/20 flex items-center justify-between group hover:shadow-xl transition-shadow">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15"><Zap className="h-5 w-5" /></span>
+                  <div><p className="text-sm font-bold">Gateway Marchand GeniusPay</p><p className="text-xs text-brand-200 mt-0.5">Soldes, wallets & monitoring API</p></div>
+                </div>
+                <span className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition">Ouvrir</span>
+              </motion.div>
+            </Link>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Link href="/app/admin/payouts" className="block">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                  className="rounded-2xl bg-white p-4 border border-wave-100 shadow-sm flex items-center gap-3 hover:shadow-md transition-shadow h-full">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 border border-amber-100"><Send className="h-5 w-5" /></span>
+                  <div><p className="text-sm font-bold text-wave-900">Monitoring Payouts</p><p className="text-[11px] text-wave-400 mt-0.5">Audit des retraits</p></div>
+                </motion.div>
+              </Link>
+              <Link href="/app/admin/soldes" className="block">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                  className="rounded-2xl bg-white p-4 border border-wave-100 shadow-sm flex items-center gap-3 hover:shadow-md transition-shadow h-full">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100"><Wallet className="h-5 w-5" /></span>
+                  <div><p className="text-sm font-bold text-wave-900">Soldes Groupes</p><p className="text-[11px] text-wave-400 mt-0.5">Balance par groupe</p></div>
+                </motion.div>
+              </Link>
+            </div>
           </div>
 
           <div className="mt-6">

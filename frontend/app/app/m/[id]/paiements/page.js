@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, CheckCircle2, Clock, XCircle, Ban, X, Eye, Hash, Wallet, Calendar, Tag, AlertTriangle } from "lucide-react";
 import AppShell from "../../../../components/AppShell";
 import { api, fcfa, API_BASE } from "../../../../lib/api";
-import { fmtDate } from "../../../../lib/utils";
+import { fmtDate, fmtTime, fmtDateFull } from "../../../../lib/utils";
 
 const STATUT_ICON = {
   reussi: { Icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-600 border border-emerald-100" },
@@ -20,6 +20,57 @@ const STATUT_LABEL = {
   echoue: "Échoué",
   annule: "Annulé",
 };
+
+/**
+ * Regroupe les paiements par date (style Wave) en utilisant created_at pour le tri.
+ */
+function groupByDate(paiements) {
+  const sorted = [...paiements].sort((a, b) => {
+    const da = new Date(a.created_at || a.date_paiement);
+    const db = new Date(b.created_at || b.date_paiement);
+    return db - da; // Plus récent en premier
+  });
+
+  const groups = [];
+  let currentDate = null;
+  let currentGroup = null;
+
+  for (const p of sorted) {
+    const d = new Date(p.created_at || p.date_paiement);
+    const dateKey = d.toISOString().slice(0, 10);
+
+    if (dateKey !== currentDate) {
+      currentDate = dateKey;
+      currentGroup = { date: dateKey, dateObj: d, paiements: [] };
+      groups.push(currentGroup);
+    }
+    currentGroup.paiements.push(p);
+  }
+
+  return groups;
+}
+
+/**
+ * Formate le label de la date pour les en-têtes de groupe (style Wave).
+ */
+function formatGroupDate(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  if (dateStr === today) return "Aujourd'hui";
+  if (dateStr === yesterdayStr) return "Hier";
+
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 export default function MesPaiements() {
   const { id } = useParams();
@@ -43,6 +94,7 @@ export default function MesPaiements() {
   }, [id]);
 
   const total = data.paiements.filter(p=>p.statut==="reussi").reduce((sum,p)=>sum+p.montant, 0);
+  const dateGroups = groupByDate(data.paiements);
 
   return (
     <AppShell title="Mes paiements" role="membre" groupeId={id} back>
@@ -76,36 +128,51 @@ export default function MesPaiements() {
               <p className="text-sm font-medium text-wave-500">Aucun paiement enregistré.</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
-              {data.paiements.map((paiement, idx)=>{
-                const statutIcon = STATUT_ICON[paiement.statut] || STATUT_ICON.reussi;
-                return (
-                  <motion.button
-                    key={paiement.id}
-                    initial={{opacity:0,y:8}}
-                    animate={{opacity:1,y:0}}
-                    transition={{delay:idx*0.02}}
-                    onClick={() => { setSelected(paiement); setPreuveUrl(null); setPreuveError(null); }}
-                    className="w-full text-left flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-wave-100 active:scale-[0.98] transition-transform"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${statutIcon.cls}`}>
-                        <statutIcon.Icon className="h-5 w-5"/>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-extrabold text-wave-900 capitalize">{paiement.type}{paiement.periode ? ` · ${fmtDate(paiement.periode.date_debut)}` : ""}</p>
-                        <p className="text-[11px] font-medium text-wave-400 mt-0.5">{fmtDate(paiement.date_paiement)} · {paiement.mode}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <p className={`shrink-0 text-base font-extrabold ${paiement.statut==="reussi"?"text-emerald-600":"text-wave-500"}`}>
-                        +{fcfa(Math.ceil((paiement.montant * 1.01 + 100) / 0.975)).replace(' FCFA', '')}
-                      </p>
-                      <p className="text-[10px] font-semibold text-wave-400 mt-0.5">Dont {fcfa(paiement.montant)} reçu</p>
-                    </div>
-                  </motion.button>
-                );
-              })}
+            <div className="space-y-5">
+              {dateGroups.map((group) => (
+                <div key={group.date}>
+                  {/* En-tête de date style Wave */}
+                  <div className="flex items-center gap-3 mb-2.5 px-1">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-wave-400 whitespace-nowrap">
+                      {formatGroupDate(group.date)}
+                    </p>
+                    <div className="flex-1 h-px bg-wave-100"></div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {group.paiements.map((paiement, idx)=>{
+                      const statutIcon = STATUT_ICON[paiement.statut] || STATUT_ICON.reussi;
+                      const heureStr = fmtTime(paiement.created_at || paiement.date_paiement);
+                      return (
+                        <motion.button
+                          key={paiement.id}
+                          initial={{opacity:0,y:8}}
+                          animate={{opacity:1,y:0}}
+                          transition={{delay:idx*0.02}}
+                          onClick={() => { setSelected(paiement); setPreuveUrl(null); setPreuveError(null); }}
+                          className="w-full text-left flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-wave-100 active:scale-[0.98] transition-transform"
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${statutIcon.cls}`}>
+                              <statutIcon.Icon className="h-5 w-5"/>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-extrabold text-wave-900 capitalize">{paiement.type}{paiement.periode ? ` · ${fmtDate(paiement.periode.date_debut)}` : ""}</p>
+                              <p className="text-[11px] font-medium text-wave-400 mt-0.5">{heureStr} · {paiement.mode}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <p className={`shrink-0 text-base font-extrabold ${paiement.statut==="reussi"?"text-emerald-600":"text-wave-500"}`}>
+                              +{fcfa(Math.ceil((paiement.montant * 1.01 + 100) / 0.975)).replace(' FCFA', '')}
+                            </p>
+                            <p className="text-[10px] font-semibold text-wave-400 mt-0.5">Dont {fcfa(paiement.montant)} reçu</p>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </>
@@ -155,17 +222,24 @@ export default function MesPaiements() {
                     </div>
                   </div>
                   <div className="rounded-2xl bg-wave-50 p-4 border border-wave-100">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Mode</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Heure</p>
                     <div className="mt-1 flex items-center gap-1.5">
-                      <Wallet className="h-4 w-4 text-wave-500" />
-                      <span className="text-sm font-bold capitalize text-wave-800">{selected.mode}</span>
+                      <Clock className="h-4 w-4 text-wave-500" />
+                      <span className="text-sm font-bold text-wave-800">{fmtTime(selected.created_at) || "—"}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="rounded-2xl bg-wave-50 p-4 border border-wave-100 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Type de cotisation</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Mode de paiement</p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <Wallet className="h-4 w-4 text-wave-500" />
+                      <span className="text-sm font-bold capitalize text-wave-800">{selected.mode}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Type</p>
                     <p className="text-sm font-bold capitalize text-wave-800 mt-1">{selected.type}</p>
                   </div>
                   <Tag className="h-5 w-5 text-wave-400" />

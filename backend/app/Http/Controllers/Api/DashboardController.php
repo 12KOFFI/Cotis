@@ -53,7 +53,7 @@ class DashboardController extends Controller
 
         $tauxCollecte = $totalAttendu > 0 ? round(($totalRecu / $totalAttendu) * 100, 1) : 0;
 
-        $dernieresTransactions = $groupe->paiements()->with('membre')->latest('date_paiement')->limit(5)->get();
+        $dernieresTransactions = $groupe->paiements()->with('membre')->latest('created_at')->limit(5)->get();
         $invitationsEnAttente = $groupe->invitations()->where('statut', 'envoyee')->count();
 
         return response()->json([
