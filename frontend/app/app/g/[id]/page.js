@@ -427,6 +427,7 @@ export default function GestionnaireDashboard() {
         <SettingsTarifsModal
           groupeId={id}
           groupe={groupe}
+          periode={data.periode}
           onClose={(updated) => {
             setSettingsOpen(false);
             if (updated) loadDashboard();
@@ -1232,13 +1233,15 @@ function AddMembreModal({ groupeId, groupe, onClose }) {
   );
 }
 
-function SettingsTarifsModal({ groupeId, groupe, onClose }) {
+function SettingsTarifsModal({ groupeId, groupe, periode, onClose }) {
   const [f, setF] = useState({
     montant_standard: groupe?.montant_standard || "",
     adhesion_active: groupe?.adhesion_active || false,
     adhesion_montant: groupe?.adhesion_montant || "",
     montant_personnalisable: groupe?.montant_personnalisable || false,
     wave_numero: groupe?.wave_numero || "",
+    periode_debut: periode?.date_debut ? periode.date_debut.substring(0, 10) : "",
+    periode_fin: periode?.date_fin ? periode.date_fin.substring(0, 10) : "",
   });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1285,6 +1288,33 @@ function SettingsTarifsModal({ groupeId, groupe, onClose }) {
 
         <div className="overflow-y-auto px-5 pb-5">
           <div className="space-y-3.5 pt-3">
+            {periode && (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-wave-50/50 border border-wave-100">
+                <div className="col-span-2">
+                  <p className="text-sm font-semibold text-wave-800">Période en cours</p>
+                  <p className="text-[10px] text-wave-500">Modifiez les dates de la cotisation actuelle</p>
+                </div>
+                <div>
+                  <label className="label">Date de début</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={f.periode_debut}
+                    onChange={(e) => setF({ ...f, periode_debut: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Date de fin</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={f.periode_fin}
+                    onChange={(e) => setF({ ...f, periode_fin: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="label">Montant standard (FCFA)</label>
               <input

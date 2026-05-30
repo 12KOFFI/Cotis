@@ -200,6 +200,112 @@ class CarteController extends Controller
         ]);
     }
 
+    // ─── Portail Membre (carte unique multi-groupes pour le profil) ───
+
+    public function profil(Request $request)
+    {
+        $user = $request->user();
+
+        // Récupérer tous les groupes dont l'utilisateur est membre
+        $groupes = Groupe::whereHas('membres', function($q) use ($user) {
+            $q->where('user_id', $user->id)->whereIn('statut', ['actif', 'actif_non_verifie']);
+        })->get();
+
+        $frontUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $token = sha1($user->id . '.profil.' . config('app.key'));
+        $url = $frontUrl . '/carte/profil/' . $user->id . '?token=' . $token;
+
+        $builder = new Builder(
+            writer: new PngWriter(),
+            data: $url,
+            encoding: new Encoding('UTF-8'),
+            size: 260,
+            margin: 6
+        );
+        $qr = $builder->build();
+
+        return response()->json([
+            'user' => ['nom' => $user->name, 'email' => $user->email],
+            'groupes' => $groupes->map(fn($g) => [
+                'id' => $g->id,
+                'nom' => $g->nom,
+                'type' => $g->type,
+                'devise' => $g->devise,
+            ]),
+            'qr_png_base64' => base64_encode($qr->getString()),
+            'qr_url' => $url,
+        ]);
+    }
+
+    public function profilPdf(Request $request)
+    {
+        $user = $request->user();
+
+        $groupes = Groupe::whereHas('membres', function($q) use ($user) {
+            $q->where('user_id', $user->id)->whereIn('statut', ['actif', 'actif_non_verifie']);
+        })->get();
+
+        $frontUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $token = sha1($user->id . '.profil.' . config('app.key'));
+        $url = $frontUrl . '/carte/profil/' . $user->id . '?token=' . $token;
+
+        $builder = new Builder(
+            writer: new PngWriter(),
+            data: $url,
+            encoding: new Encoding('UTF-8'),
+            size: 220,
+            margin: 6
+        );
+        $qr = $builder->build();
+        $qrB64 = base64_encode($qr->getString());
+
+        $pdf = Pdf::loadView('carte-portail', [ // On réutilise la même vue PDF que le gestionnaire pour un look unifié
+            'user' => $user,
+            'groupes' => $groupes,
+            'qr' => $qrB64,
+        ])->setPaper([0, 0, 400, 260]);
+
+        return $pdf->download('carte-membre.pdf');
+    }
+
+    public function publicProfil(Request $request, User $user)
+    {
+        $expected = sha1($user->id . '.profil.' . config('app.key'));
+        abort_unless(hash_equals($expected, (string) $request->get('token')), 403);
+
+        $groupes = Groupe::whereHas('membres', function($q) use ($user) {
+            $q->where('user_id', $user->id)->whereIn('statut', ['actif', 'actif_non_verifie']);
+        })->get();
+
+        return response()->json([
+            'user' => ['nom' => $user->name],
+            'groupes' => $groupes->map(fn($g) => [
+                'id' => $g->id,
+                'nom' => $g->nom,
+                'type' => $g->type,
+                'devise' => $g->devise,
+            ]),
+        ]);
+    }
+
+    public function publicProfilPaiements(Request $request, User $user, Groupe $groupe)
+    {
+        $expected = sha1($user->id . '.profil.' . config('app.key'));
+        abort_unless(hash_equals($expected, (string) $request->get('token')), 403);
+
+        $membre = Membre::where('user_id', $user->id)->where('groupe_id', $groupe->id)->firstOrFail();
+
+        $paiements = Paiement::where('membre_id', $membre->id)
+            ->latest('date_paiement')
+            ->get(['id', 'type', 'montant', 'mode', 'statut', 'date_paiement']);
+
+        return response()->json([
+            'membre' => ['id' => $membre->id, 'nom' => $membre->nom, 'prenom' => $membre->prenom],
+            'groupe' => ['id' => $groupe->id, 'nom' => $groupe->nom, 'devise' => $groupe->devise],
+            'paiements' => $paiements,
+        ]);
+    }
+
     protected function authorize(Request $request, Groupe $groupe, Membre $membre): void
     {
         $u = $request->user();

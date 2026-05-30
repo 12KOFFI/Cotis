@@ -96,8 +96,23 @@ class GroupeController extends Controller
             'adhesion_active' => 'boolean',
             'adhesion_montant' => 'nullable|integer|min:0',
             'montant_personnalisable' => 'boolean',
+            'periode_debut' => 'nullable|date',
+            'periode_fin' => 'nullable|date',
         ]);
-        $groupe->update($data);
+
+        if ($request->filled('periode_debut') || $request->filled('periode_fin')) {
+            $currentPeriode = $groupe->periodes()->latest('date_debut')->first();
+            if ($currentPeriode) {
+                if ($request->filled('periode_debut')) $currentPeriode->date_debut = $request->periode_debut;
+                if ($request->filled('periode_fin')) {
+                    $currentPeriode->date_fin = $request->periode_fin;
+                    $currentPeriode->echeance = $request->periode_fin;
+                }
+                $currentPeriode->save();
+            }
+        }
+
+        $groupe->update(\Illuminate\Support\Arr::except($data, ['periode_debut', 'periode_fin']));
         return response()->json(['groupe' => $groupe]);
     }
 
@@ -137,7 +152,7 @@ class GroupeController extends Controller
     {
         $this->authorizeGroupe($request, $groupe);
 
-        $hasPaiements = $groupe->paiements()->exists();
+        $hasPaiements = $groupe->paiements()->where('statut', 'reussi')->exists();
         if ($hasPaiements) {
             return response()->json([
                 'message' => 'Impossible de supprimer ce groupe car des paiements ont déjà été effectués.'

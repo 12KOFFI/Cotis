@@ -30,6 +30,9 @@ Route::get('/public/membre/{membre}/history', [CarteController::class, 'publicHi
 Route::get('/public/gestionnaire/{user}/portail', [CarteController::class, 'publicPortail']);
 Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres', [CarteController::class, 'publicPortailMembres']);
 Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres/{membre}/paiements', [CarteController::class, 'publicPortailPaiements']);
+
+Route::get('/public/profil/{user}', [CarteController::class, 'publicProfil']);
+Route::get('/public/profil/{user}/groupes/{groupe}/paiements', [CarteController::class, 'publicProfilPaiements']);
 Route::post('/webhooks/geniuspay', [GeniusPayWebhookController::class, 'handle']);
 Route::get('/acces/{token}', [MembreAccesController::class, 'show']);
 
@@ -85,6 +88,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/groupes/{groupe}/membres/{membre}/carte/pdf', [CarteController::class, 'pdf']);
     Route::get('/carte/portail', [CarteController::class, 'portail']);
     Route::get('/carte/portail/pdf', [CarteController::class, 'portailPdf']);
+    
+    // Carte unifiée pour Membre (Profil)
+    Route::get('/carte/profil', [CarteController::class, 'profil']);
+    Route::get('/carte/profil/pdf', [CarteController::class, 'profilPdf']);
 
     // Export
     Route::get('/groupes/{groupe}/export/csv', [ExportController::class, 'csv']);
