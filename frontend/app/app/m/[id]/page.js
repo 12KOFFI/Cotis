@@ -227,6 +227,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
       return; 
     }
     setError(""); setSubmitting(true);
+    let isRedirecting = false;
     try {
       const response = await api.post(`/groupes/${groupeId}/paiements/initier`, {
         montant: amountReceived, // On envoie le montant que le bénéficiaire doit recevoir
@@ -236,6 +237,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
       if (response.data.checkout_url) {
         // Sauvegarder le groupe pour la redirection après paiement
         localStorage.setItem('cp_last_groupe', groupeId);
+        isRedirecting = true;
         window.location.href = response.data.checkout_url;
       } else {
         setError("Lien de paiement Wave indisponible.");
@@ -243,7 +245,9 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
     } catch (err) {
       setError(err.response?.data?.message || "Impossible d'initier le paiement Wave.");
     } finally {
-      setSubmitting(false);
+      if (!isRedirecting) {
+        setSubmitting(false);
+      }
     }
   }
 

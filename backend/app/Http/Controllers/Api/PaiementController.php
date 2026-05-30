@@ -107,6 +107,7 @@ class PaiementController extends Controller
         $response = Http::when(app()->environment('local'), function ($client) {
                 return $client->withoutVerifying();
             })
+            ->timeout(15)
             ->withHeaders([
                 'X-API-Key'    => $apiKey,
                 'X-API-Secret' => $apiSecret,
