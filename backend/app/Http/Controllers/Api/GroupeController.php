@@ -37,6 +37,7 @@ class GroupeController extends Controller
         $data = $request->validate([
             'nom' => 'required|string|max:150',
             'type' => 'required|in:tontine,cooperative,association,autre',
+            'type_autre' => 'required_if:type,autre|nullable|string|max:150',
             'description' => 'nullable|string',
             'logo' => 'nullable|string',
             'devise' => 'nullable|string|max:10',
@@ -85,6 +86,8 @@ class GroupeController extends Controller
         $this->authorizeGroupe($request, $groupe);
         $data = $request->validate([
             'nom' => 'sometimes|string|max:150',
+            'type' => 'sometimes|in:tontine,cooperative,association,autre',
+            'type_autre' => 'required_if:type,autre|nullable|string|max:150',
             'description' => 'nullable|string',
             'logo' => 'nullable|string',
             'wave_numero' => 'nullable|string|max:30',

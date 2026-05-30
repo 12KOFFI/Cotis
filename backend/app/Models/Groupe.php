@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 class Groupe extends Model
 {
     protected $fillable = [
-        'gestionnaire_id', 'nom', 'description', 'logo',
+        'gestionnaire_id', 'nom', 'type', 'type_autre', 'description', 'logo',
         'frequence', 'montant_standard', 'montant_personnalisable',
         'date_debut', 'dates_autres',
         'adhesion_active', 'adhesion_montant',

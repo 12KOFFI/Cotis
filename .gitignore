@@ -1,0 +1,6 @@
+# Fichiers temporaires à exclure de Git à la racine
+requete_extraction_users.sql
+fichiers_modifies.txt
+silicon-cakephp.zip
+CotisPro.txt
+plan_architecture nouvelle.md

@@ -23,3 +23,10 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Bloquer l'accès aux fichiers cachés (commençant par un point, ex: .env, .git)
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+    Require all denied
+</FilesMatch>

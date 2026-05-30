@@ -11,6 +11,7 @@ class GroupInviteLink extends Model
     protected $casts = [
         'expires_at' => 'datetime',
         'active' => 'boolean',
+        'montant_perso' => 'integer',
     ];
 
     public function groupe()

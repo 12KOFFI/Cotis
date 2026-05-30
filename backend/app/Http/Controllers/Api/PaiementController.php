@@ -112,6 +112,7 @@ class PaiementController extends Controller
                 'X-API-Secret' => $apiSecret,
                 'Accept'       => 'application/json',
                 'Content-Type' => 'application/json',
+                'User-Agent'   => 'CotisPro-Backend/1.0',
             ])
             ->post("{$baseUrl}/merchant/payments", [
                 'amount'         => $montantEnvoye, // Montant total facturé au client
@@ -197,6 +198,7 @@ class PaiementController extends Controller
             'X-API-Key'    => $apiKey,
             'X-API-Secret' => $apiSecret,
             'Accept'       => 'application/json',
+            'User-Agent'   => 'CotisPro-Backend/1.0',
         ])->get("{$baseUrl}/merchant/payments/{$paiement->transaction_id}");
 
         if (!$response->successful()) {

@@ -30,6 +30,7 @@ export default function NewGroupe() {
   const [f, setF] = useState({
     nom: "",
     type: "tontine",
+    type_autre: "",
     description: "",
     adhesion_active: false,
     adhesion_montant: "",
@@ -111,6 +112,12 @@ export default function NewGroupe() {
                   </button>
                 ))}
               </div>
+              {f.type === "autre" && (
+                <div className="mt-4">
+                  <label className="label">Précisez le type</label>
+                  <input className="input" value={f.type_autre} onChange={(e)=>upd("type_autre",e.target.value)} placeholder="Ex: Mutuelle étudiante"/>
+                </div>
+              )}
             </div>
             <div>
               <label className="label">Logo du groupe (optionnel)</label>
@@ -221,7 +228,7 @@ export default function NewGroupe() {
             <div className="rounded-2xl bg-wave-50/60 p-4 text-xs text-wave-700">
               <p className="font-semibold">Récapitulatif</p>
               <ul className="mt-2 space-y-1">
-                <li>• {f.nom} · <span className="capitalize">{f.type}</span></li>
+                <li>• {f.nom} · <span className="capitalize">{f.type === "autre" ? f.type_autre || "Autre" : f.type}</span></li>
                 <li>• {f.frequence} · {new Intl.NumberFormat("fr-FR").format(f.montant_standard)} FCFA</li>
                 {f.adhesion_active && <li>• Adhésion : {new Intl.NumberFormat("fr-FR").format(f.adhesion_montant)} FCFA</li>}
               </ul>

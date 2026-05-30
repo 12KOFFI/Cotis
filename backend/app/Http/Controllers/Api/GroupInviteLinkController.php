@@ -24,9 +24,22 @@ class GroupInviteLinkController extends Controller
         $data = $request->validate([
             'expires_in_days' => 'nullable|integer|min:1|max:365',
             'max_uses' => 'nullable|integer|min:1|max:10000',
+            'target_name' => 'nullable|string|max:120',
+            'target_prenom' => 'nullable|string|max:120',
+            'montant_perso' => 'nullable|integer|min:0',
         ]);
 
-        $groupe->inviteLinks()->update(['active' => false]);
+        $isPersonalized = !empty($data['target_name']) || !empty($data['target_prenom']) || isset($data['montant_perso']);
+
+        if (!$isPersonalized) {
+            // Désactiver uniquement les anciens liens publics
+            $groupe->inviteLinks()
+                   ->where('active', true)
+                   ->whereNull('target_name')
+                   ->whereNull('target_prenom')
+                   ->whereNull('montant_perso')
+                   ->update(['active' => false]);
+        }
 
         $link = GroupInviteLink::create([
             'groupe_id' => $groupe->id,
@@ -35,6 +48,9 @@ class GroupInviteLinkController extends Controller
             'expires_at' => now()->addDays($data['expires_in_days'] ?? 30),
             'active' => true,
             'max_uses' => $data['max_uses'] ?? null,
+            'target_name' => $data['target_name'] ?? null,
+            'target_prenom' => $data['target_prenom'] ?? null,
+            'montant_perso' => $data['montant_perso'] ?? null,
         ]);
 
         return response()->json(['link' => $this->formatLink($request, $link)], 201);
@@ -43,7 +59,13 @@ class GroupInviteLinkController extends Controller
     public function destroy(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe);
-        $groupe->inviteLinks()->where('active', true)->update(['active' => false]);
+        
+        $linkId = $request->query('link_id');
+        if ($linkId) {
+            $groupe->inviteLinks()->where('id', $linkId)->update(['active' => false]);
+        } else {
+            $groupe->inviteLinks()->where('active', true)->update(['active' => false]);
+        }
 
         return response()->json(['ok' => true]);
     }
@@ -66,6 +88,9 @@ class GroupInviteLinkController extends Controller
             'active' => $link->active,
             'uses_count' => $link->uses_count,
             'max_uses' => $link->max_uses,
+            'target_name' => $link->target_name,
+            'target_prenom' => $link->target_prenom,
+            'montant_perso' => $link->montant_perso,
         ];
     }
 }

@@ -411,7 +411,7 @@ export default function GestionnaireDashboard() {
         />
       )}
       {inviteOpen && (
-        <InviteLinkModal groupeId={id} onClose={() => setInviteOpen(false)} />
+        <InviteLinkModal groupeId={id} groupe={groupe} onClose={() => setInviteOpen(false)} />
       )}
       {addMembreOpen && (
         <AddMembreModal
@@ -762,23 +762,32 @@ function ExportButton({ groupeId, type }) {
   );
 }
 
-function InviteLinkModal({ groupeId, onClose }) {
+function InviteLinkModal({ groupeId, groupe, onClose }) {
+  const [tab, setTab] = useState("public"); // "public" | "perso"
   const [link, setLink] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Champs personnalisation
+  const [targetNom, setTargetNom] = useState("");
+  const [targetPrenom, setTargetPrenom] = useState("");
+  const [montantPerso, setMontantPerso] = useState("");
+
   useEffect(() => {
     api
       .get(`/groupes/${groupeId}/invite-link`)
       .then((r) => {
-        setLink(r.data.link);
+        const l = r.data.link;
+        setLink(l);
+        // Basculer automatiquement sur l'onglet correspondant au lien actif
+        if (l && (l.target_name || l.montant_perso)) setTab("perso");
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [groupeId]);
 
-  async function generate() {
+  async function generatePublic() {
     setGenerating(true);
     try {
       const r = await api.post(`/groupes/${groupeId}/invite-link`, {
@@ -789,19 +798,131 @@ function InviteLinkModal({ groupeId, onClose }) {
     setGenerating(false);
   }
 
-  async function deactivate() {
+  async function generatePerso() {
+    setGenerating(true);
     try {
-      await api.delete(`/groupes/${groupeId}/invite-link`);
+      const payload = { expires_in_days: 30 };
+      if (targetNom.trim()) payload.target_name = targetNom.trim();
+      if (targetPrenom.trim()) payload.target_prenom = targetPrenom.trim();
+      if (montantPerso) payload.montant_perso = parseInt(montantPerso);
+      const r = await api.post(`/groupes/${groupeId}/invite-link`, payload);
+      setLink(r.data.link);
+    } catch {}
+    setGenerating(false);
+  }
+
+  async function deactivate() {
+    if (!link?.id) return;
+    try {
+      await api.delete(`/groupes/${groupeId}/invite-link?link_id=${link.id}`);
       setLink(null);
     } catch {}
   }
 
-  function copyLink() {
-    if (!link?.url) return;
-    navigator.clipboard.writeText(link.url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  function resetForm() {
+    setLink(null);
+    setTargetNom("");
+    setTargetPrenom("");
+    setMontantPerso("");
   }
+
+  function doCopy() {
+    if (!link?.url) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(link.url)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch(() => fallbackCopy(link.url));
+    } else {
+      fallbackCopy(link.url);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    try {
+      document.execCommand("copy");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+    document.body.removeChild(el);
+  }
+
+  const isPersoLink = !!(link?.target_name || link?.montant_perso);
+
+  /* ── Bloc réutilisable : lien actif + actions ── */
+  const linkBlock = link?.url && (
+    <div className="space-y-3 pt-3">
+      <div className="rounded-2xl bg-wave-50 p-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400 mb-1">
+          Lien actif
+        </p>
+        <p className="text-sm font-mono text-wave-700 break-all">{link.url}</p>
+        {link.expires_at && (
+          <p className="mt-2 text-[10px] text-wave-500">
+            Expire le {new Date(link.expires_at).toLocaleDateString("fr-FR")}
+          </p>
+        )}
+      </div>
+
+      {isPersoLink && (
+        <div className="rounded-2xl bg-brand-50 p-4 border border-brand-100">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500 mb-2">
+            Invitation personnalisée
+          </p>
+          {(link.target_prenom || link.target_name) && (
+            <div className="flex items-center gap-2 mb-1.5">
+              <UserPlus className="h-4 w-4 text-brand-500" />
+              <span className="text-sm font-semibold text-wave-800">
+                {[link.target_prenom, link.target_name].filter(Boolean).join(" ")}
+              </span>
+            </div>
+          )}
+          {link.montant_perso && (
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-brand-500" />
+              <span className="text-sm font-semibold text-wave-800">
+                {fcfa(link.montant_perso)}
+                <span className="text-[10px] font-normal text-wave-500 ml-1">
+                  (au lieu de {fcfa(groupe?.montant_standard)})
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button onClick={doCopy} className="btn-primary flex-1 !py-3">
+          {copied ? (
+            <><Check className="h-4 w-4" /> Copié !</>
+          ) : (
+            <><Copy className="h-4 w-4" /> Copier le lien</>
+          )}
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={resetForm} className="btn-ghost flex-1 !py-2.5 text-xs">
+          Nouveau lien
+        </button>
+        <button
+          onClick={deactivate}
+          className="flex-1 rounded-xl bg-red-50 py-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+        >
+          Désactiver
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -813,12 +934,11 @@ function InviteLinkModal({ groupeId, onClose }) {
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-soft sm:rounded-3xl"
+        className="flex flex-col w-full max-w-md rounded-t-3xl bg-white shadow-soft sm:rounded-3xl max-h-[90vh]"
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h3 className="font-display text-lg font-extrabold">
-            Lien d'invitation
-          </h3>
+        {/* HEADER */}
+        <div className="flex shrink-0 items-center justify-between border-b border-wave-100 px-5 py-4">
+          <h3 className="font-display text-lg font-extrabold">Invitation</h3>
           <button
             onClick={onClose}
             className="grid h-9 w-9 place-items-center rounded-full border border-wave-100 text-wave-500 transition hover:bg-wave-50 hover:text-wave-700"
@@ -827,71 +947,165 @@ function InviteLinkModal({ groupeId, onClose }) {
           </button>
         </div>
 
-        {loading ? (
-          <div className="h-20 animate-pulse rounded-2xl bg-wave-100/60" />
-        ) : link?.url ? (
-          <div className="space-y-3">
-            <div className="rounded-2xl bg-wave-50 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400 mb-1">
-                Lien actif
-              </p>
-              <p className="text-sm font-mono text-wave-700 break-all">
-                {link.url}
-              </p>
-              {link.expires_at && (
-                <p className="mt-2 text-[10px] text-wave-500">
-                  Expire le{" "}
-                  {new Date(link.expires_at).toLocaleDateString("fr-FR")}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={copyLink} className="btn-primary flex-1 !py-3">
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4" /> Copié !
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" /> Copier le lien
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={generate}
-                disabled={generating}
-                className="btn-ghost flex-1 !py-2.5 text-xs"
-              >
-                {generating ? "Génération..." : "Régénérer"}
-              </button>
-              <button
-                onClick={deactivate}
-                className="flex-1 rounded-xl bg-red-50 py-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
-              >
-                Désactiver
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center space-y-3">
-            <p className="text-sm text-wave-500">
-              Aucun lien d'invitation actif.
-            </p>
+        {/* ONGLETS */}
+        <div className="flex shrink-0 border-b border-wave-100 px-5">
+          {[
+            { key: "public", label: "Lien Public", Icon: Link2 },
+            { key: "perso", label: "Personnalisé", Icon: UserPlus },
+          ].map(({ key, label, Icon }) => (
             <button
-              onClick={generate}
-              disabled={generating}
-              className="btn-primary !py-3 w-full"
+              key={key}
+              onClick={() => setTab(key)}
+              className={`relative flex-1 py-3 text-center text-sm font-bold transition-colors ${
+                tab === key ? "text-brand-600" : "text-wave-400 hover:text-wave-600"
+              }`}
             >
-              {generating ? "Génération..." : "Générer un lien d'invitation"}
+              <div className="flex items-center justify-center gap-1.5">
+                <Icon className="h-4 w-4" />
+                {label}
+              </div>
+              {tab === key && (
+                <motion.div
+                  layoutId="invite-tab-bar"
+                  className="absolute bottom-0 left-2 right-2 h-[3px] rounded-full wave-bg"
+                />
+              )}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
+
+        {/* CONTENU */}
+        <div className="overflow-y-auto px-5 pb-5">
+          {loading ? (
+            <div className="h-20 animate-pulse rounded-2xl bg-wave-100/60 mt-4" />
+          ) : (
+            <>
+              {/* ─── ONGLET PUBLIC ─── */}
+              {tab === "public" && (
+                <>
+                  {link?.url && !isPersoLink ? (
+                    linkBlock
+                  ) : (
+                    <div className="space-y-4 pt-4">
+                      <div className="rounded-2xl bg-wave-50 p-4 text-center">
+                        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-brand-100 text-brand-600">
+                          <Link2 className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-semibold text-wave-800">
+                          Lien ouvert à tous
+                        </p>
+                        <p className="mt-1 text-[10px] text-wave-500 leading-relaxed">
+                          Tout le monde pourra utiliser ce lien pour rejoindre le groupe avec
+                          le montant standard ({fcfa(groupe?.montant_standard || 0)}).
+                        </p>
+                      </div>
+                      <button
+                        onClick={generatePublic}
+                        disabled={generating}
+                        className="btn-primary !py-3 w-full"
+                      >
+                        {generating ? "Génération..." : "Générer un lien public"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ─── ONGLET PERSONNALISÉ ─── */}
+              {tab === "perso" && (
+                <>
+                  {link?.url && isPersoLink ? (
+                    linkBlock
+                  ) : (
+                    <div className="space-y-4 pt-4">
+                      <div className="rounded-2xl bg-brand-50 p-4 border border-brand-100 space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">
+                          Destinataire ciblé
+                        </p>
+                        <p className="text-[11px] text-wave-500 leading-relaxed">
+                          Les champs Nom et Prénom seront pré-remplis automatiquement pour
+                          l&apos;invité à l&apos;ouverture du lien.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="label">Prénom</label>
+                            <input
+                              className="input"
+                              placeholder="Ex: Ibrahim"
+                              value={targetPrenom}
+                              onChange={(e) => setTargetPrenom(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="label">Nom *</label>
+                            <input
+                              className="input"
+                              placeholder="Ex: Koné"
+                              value={targetNom}
+                              onChange={(e) => setTargetNom(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        {groupe?.montant_personnalisable && (
+                          <div>
+                            <label className="label">Montant de cotisation (FCFA)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              className="input"
+                              placeholder={`Standard : ${groupe?.montant_standard || 0}`}
+                              value={montantPerso}
+                              onChange={(e) => setMontantPerso(e.target.value)}
+                            />
+                            <p className="mt-1 text-[10px] text-wave-500">
+                              Ce montant remplacera le montant standard ({fcfa(groupe?.montant_standard || 0)}) pour cette personne.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={generatePerso}
+                        disabled={generating || !targetNom.trim()}
+                        className="btn-primary !py-3 w-full"
+                      >
+                        {generating ? "Génération..." : "Générer le lien personnalisé"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
       </motion.div>
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function AddMembreModal({ groupeId, groupe, onClose }) {
   const [f, setF] = useState({

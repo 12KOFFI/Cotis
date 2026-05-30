@@ -23,12 +23,13 @@ import {
 } from "lucide-react";
 import AppShell from "../../../../components/AppShell";
 import PhoneInput from "../../../../components/PhoneInput";
-import { api, fcfa, API_BASE } from "../../../../lib/api";
+import { api, fcfa, auth, API_BASE } from "../../../../lib/api";
 import { fmtDate, fmtTime } from "../../../../lib/utils";
 
 export default function CaissePage() {
   const { id } = useParams();
   const [data, setData] = useState(null);
+  const [groupe, setGroupe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [decOpen, setDecOpen] = useState(false);
   const [payoutOpen, setPayoutOpen] = useState(false);
@@ -38,8 +39,12 @@ export default function CaissePage() {
   const [preuveLoading, setPreuveLoading] = useState(false);
 
   async function load() {
-    const r = await api.get(`/groupes/${id}/caisse`);
+    const [r, grp] = await Promise.all([
+      api.get(`/groupes/${id}/caisse`),
+      api.get(`/groupes/${id}`),
+    ]);
     setData(r.data);
+    setGroupe(grp.data.groupe);
     setLoading(false);
   }
   useEffect(() => {
@@ -426,6 +431,7 @@ export default function CaissePage() {
         {payoutOpen && (
           <RetraitWaveModal
             groupeId={id}
+            groupe={groupe}
             max={data?.solde_disponible || 0}
             onClose={() => { setPayoutOpen(false); load(); }}
           />
@@ -557,10 +563,11 @@ function DecaissementModal({ groupeId, max, onClose }) {
 /*  TÂCHE 2 + 3 — Modal Retrait Wave avec Calcul Frais Temps Réel    */
 /* ================================================================ */
 
-function RetraitWaveModal({ groupeId, max, onClose }) {
-  // États du formulaire
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
+function RetraitWaveModal({ groupeId, groupe, max, onClose }) {
+  // Pré-remplissage avec les infos du gestionnaire
+  const user = auth.getUser();
+  const [phone, setPhone] = useState(groupe?.wave_numero || user?.telephone || "");
+  const [name, setName] = useState(user?.name || "");
   const [montant, setMontant] = useState("");
   const [netAmount, setNetAmount] = useState(null);
   const [feeData, setFeeData] = useState(null);

@@ -9,7 +9,9 @@ export const API_BASE = (
 
 export const api = axios.create({
   baseURL: API_BASE,
-  headers: { Accept: "application/json" },
+  headers: { 
+    Accept: "application/json",
+  },
 });
 
 api.interceptors.request.use((config) => {

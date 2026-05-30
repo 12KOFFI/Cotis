@@ -28,8 +28,12 @@ class JoinController extends Controller
                 'nom' => $link->groupe->nom,
                 'type' => $link->groupe->type,
                 'logo' => $link->groupe->logo,
+                'montant_standard' => $link->groupe->montant_standard,
             ],
             'expires_at' => $link->expires_at,
+            'target_name' => $link->target_name,
+            'target_prenom' => $link->target_prenom,
+            'montant_perso' => $link->montant_perso,
         ]);
     }
 
@@ -92,6 +96,7 @@ class JoinController extends Controller
             'email' => $email,
             'role' => 'membre',
             'statut' => 'actif_non_verifie',
+            'montant_perso' => $link->montant_perso,
         ]);
 
         $link->increment('uses_count');

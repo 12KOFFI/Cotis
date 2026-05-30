@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, Users, Wallet } from "lucide-react";
-import { api, auth } from "../../lib/api";
+import { api, auth, fcfa } from "../../lib/api";
 import PhoneInput from "../../components/PhoneInput";
 
 export default function JoinPage() {
@@ -38,6 +38,17 @@ export default function JoinPage() {
       }));
     }
   }, [connectedUser]);
+
+  // Pré-remplir avec les infos ciblées du lien d'invitation
+  useEffect(() => {
+    if (info && !connectedUser) {
+      setForm((f) => ({
+        ...f,
+        nom: info.target_name || f.nom,
+        prenom: info.target_prenom || f.prenom,
+      }));
+    }
+  }, [info, connectedUser]);
 
   async function submit(e) {
     e.preventDefault();
@@ -93,6 +104,17 @@ export default function JoinPage() {
                 <h1 className="font-display text-xl font-extrabold text-wave-900">{info.groupe.nom}</h1>
                 <p className="mt-1 text-xs capitalize text-wave-500">{info.groupe.type}</p>
               </div>
+
+              {/* Badge montant personnalisé */}
+              {info.montant_perso && (
+                <div className="rounded-2xl bg-brand-50 border border-brand-100 p-3.5 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500 mb-1">Votre cotisation personnalisée</p>
+                  <p className="text-xl font-extrabold text-brand-700">{fcfa(info.montant_perso)}</p>
+                  {info.groupe.montant_standard && info.montant_perso !== info.groupe.montant_standard && (
+                    <p className="text-[10px] text-wave-500 mt-1">Montant standard : {fcfa(info.groupe.montant_standard)}</p>
+                  )}
+                </div>
+              )}
 
               <form onSubmit={submit} className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
