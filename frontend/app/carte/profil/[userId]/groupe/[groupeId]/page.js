@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Wallet, ShieldCheck, ChevronLeft } from "lucide-react";
-import { api, fcfa } from "../../../../../../lib/api";
+import { api, fcfa } from "../../../../../lib/api";
 
 function Inner() {
   const { userId, groupeId } = useParams();

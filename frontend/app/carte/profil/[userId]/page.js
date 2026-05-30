@@ -3,8 +3,8 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Wallet, Users, ChevronRight, ShieldCheck } from "lucide-react";
-import { api, fcfa } from "../../../lib/api";
+import { Wallet, ChevronRight, ShieldCheck } from "lucide-react";
+import { api } from "../../../lib/api";
 
 function Inner() {
   const { userId } = useParams();

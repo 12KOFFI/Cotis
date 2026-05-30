@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import QRCode from "qrcode";
-import { Download, Printer, ShieldCheck, Users, Wallet, Mail, Phone } from "lucide-react";
+import { Download, Printer, ShieldCheck, Users, Wallet } from "lucide-react";
 import { api, auth, API_BASE } from "../../lib/api";
 import AppShell from "../../components/AppShell";
 
