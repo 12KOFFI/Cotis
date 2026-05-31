@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Search, UserPlus, Star, Trash2, Edit3, ShieldCheck, QrCode, Link2, Check } from "lucide-react";
+import { Search, UserPlus, Star, Trash2, Edit3, ShieldCheck, QrCode, Link2, Check, Send } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import AppShell from "../../../../components/AppShell";
 import PhoneInput from "../../../../components/PhoneInput";
@@ -41,6 +41,7 @@ export default function MembresPage() {
   const sp = useSearchParams();
   const [addOpen, setAddOpen] = useState(sp?.get("action") === "add");
   const [copiedId, setCopiedId] = useState(null);
+  const [inviteCopiedId, setInviteCopiedId] = useState(null);
 
   async function loadAll() {
     const [m, g] = await Promise.all([
@@ -79,6 +80,20 @@ export default function MembresPage() {
       loadAll();
     } catch (e) {
       alert(e.response?.data?.message || "Erreur");
+    }
+  }
+
+  async function generateInviteLink(m) {
+    try {
+      const res = await api.post(`/groupes/${id}/invitations`, {
+        membre_id: m.id,
+        canal: 'lien'
+      });
+      navigator.clipboard.writeText(res.data.invitation.link);
+      setInviteCopiedId(m.id);
+      setTimeout(() => setInviteCopiedId(null), 2000);
+    } catch (e) {
+      alert("Erreur lors de la génération du lien d'invitation.");
     }
   }
 
@@ -203,6 +218,11 @@ export default function MembresPage() {
                   
                   {m.role !== "gestionnaire" && (
                     <>
+                      {!m.user_id && (
+                        <button onClick={()=>generateInviteLink(m)} title="Inviter à créer un compte" className={`grid h-9 w-9 place-items-center rounded-xl transition border ${inviteCopiedId === m.id ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-purple-50 border-purple-100 text-purple-600 hover:bg-purple-100"} active:scale-90`}>
+                          {inviteCopiedId === m.id ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                        </button>
+                      )}
                       <button onClick={()=>toggleTresorier(m)} title={m.role === "tresorier" ? "Retirer Trésorier" : "Nommer Trésorier"} className={`grid h-9 w-9 place-items-center rounded-xl transition border ${m.role === "tresorier" ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100" : "bg-wave-50 border-wave-100 text-wave-500 hover:bg-wave-100"} active:scale-90`}>
                         <Star className={`h-4 w-4 ${m.role === "tresorier" ? "fill-amber-500 text-amber-500" : ""}`}/>
                       </button>
