@@ -47,6 +47,21 @@ class SuperAdminController extends Controller
         return response()->json(['users' => User::latest()->limit(200)->get()]);
     }
 
+    public function updateUserPassword(Request $request)
+    {
+        $this->ensure($request);
+        $data = $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'password' => 'required|string|min:6',
+        ]);
+
+        $user = User::where('email', $data['email'])->firstOrFail();
+        $user->password = \Illuminate\Support\Facades\Hash::make($data['password']);
+        $user->save();
+
+        return response()->json(['message' => 'Mot de passe mis à jour avec succès.', 'user' => $user]);
+    }
+
     public function groupes(Request $request)
     {
         $this->ensure($request);

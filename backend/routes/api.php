@@ -101,6 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin')->group(function () {
         Route::get('/overview', [SuperAdminController::class, 'overview']);
         Route::get('/users', [SuperAdminController::class, 'users']);
+        Route::post('/users/update-password', [SuperAdminController::class, 'updateUserPassword']);
         Route::get('/groupes', [SuperAdminController::class, 'groupes']);
         Route::get('/payouts', [SuperAdminController::class, 'payouts']);
         Route::get('/groupes-soldes', [SuperAdminController::class, 'groupesSoldes']);

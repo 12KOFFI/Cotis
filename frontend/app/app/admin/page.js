@@ -11,6 +11,21 @@ export default function SuperAdmin() {
   const router = useRouter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [resetForm, setResetForm] = useState({ email: "", password: "" });
+  const [resetStatus, setResetStatus] = useState("");
+
+  async function handlePasswordReset(e) {
+    e.preventDefault();
+    setResetStatus("loading");
+    try {
+      await api.post("/admin/users/update-password", resetForm);
+      setResetStatus("success");
+      setResetForm({ email: "", password: "" });
+      setTimeout(() => setResetStatus(""), 3000);
+    } catch (err) {
+      setResetStatus(err.response?.data?.message || "Erreur lors de la réinitialisation");
+    }
+  }
 
   useEffect(()=>{
     api.get("/admin/overview").then((r)=>{ setData(r.data); setLoading(false); }).catch((e)=>{
@@ -168,6 +183,32 @@ export default function SuperAdmin() {
                   ))}
                 </ul>
               )}
+            </div>
+            
+            <div className="card">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-base font-bold">Réinitialisation de mot de passe</h3>
+              </div>
+              <p className="text-[11px] text-wave-400 mb-4">Modifiez de force le mot de passe d'un utilisateur existant.</p>
+              
+              <form onSubmit={handlePasswordReset} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-wave-500">Email de l'utilisateur</label>
+                  <input type="email" required value={resetForm.email} onChange={e=>setResetForm({...resetForm, email: e.target.value})} className="input w-full" placeholder="jean.dupont@example.com" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-wave-500">Nouveau mot de passe</label>
+                  <input type="text" required minLength="6" value={resetForm.password} onChange={e=>setResetForm({...resetForm, password: e.target.value})} className="input w-full" placeholder="Minimum 6 caractères" />
+                </div>
+                <button type="submit" disabled={resetStatus === "loading"} className="btn-primary w-full text-xs !py-2.5">
+                  {resetStatus === "loading" ? "Mise à jour..." : "Forcer le mot de passe"}
+                </button>
+                {resetStatus && resetStatus !== "loading" && (
+                  <p className={`text-[11px] text-center font-semibold ${resetStatus === "success" ? "text-emerald-600" : "text-rose-600"}`}>
+                    {resetStatus === "success" ? "Mot de passe mis à jour !" : resetStatus}
+                  </p>
+                )}
+              </form>
             </div>
           </div>
         </motion.div>
