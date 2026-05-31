@@ -31,7 +31,6 @@ const STATUT = {
     c: "bg-emerald-50 text-emerald-600",
     Icon: CheckCircle2,
   },
-  partiel: { t: "Paiement partiel", c: "bg-sky-50 text-sky-700", Icon: Clock },
   en_attente: {
     t: "En attente de paiement",
     c: "bg-amber-50 text-amber-700",

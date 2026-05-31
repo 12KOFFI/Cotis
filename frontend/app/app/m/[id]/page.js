@@ -10,7 +10,6 @@ import { fmtDate } from "../../../lib/utils";
 
 const STATUT = {
   a_jour: { t: "À jour", c: "bg-emerald-50 text-emerald-600 border border-emerald-100", Icon: CheckCircle2 },
-  partiel: { t: "Paiement partiel", c: "bg-sky-50 text-sky-700 border border-sky-100", Icon: Clock },
   en_attente: { t: "En attente de paiement", c: "bg-amber-50 text-amber-700 border border-amber-100", Icon: Clock },
   en_retard: { t: "En retard", c: "bg-orange-50 text-orange-700 border border-orange-100", Icon: AlertTriangle },
   impaye: { t: "Impayé", c: "bg-rose-50 text-rose-700 border border-rose-100", Icon: AlertTriangle },

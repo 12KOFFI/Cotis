@@ -37,7 +37,6 @@ import { fmtDate, fmtTime } from "../../../lib/utils";
 
 const STATUT_COLORS = {
   a_jour: "bg-brand-50 text-brand-600",
-  partiel: "bg-sky-50 text-sky-700",
   en_attente: "bg-amber-50 text-amber-700",
   en_retard: "bg-orange-50 text-orange-700",
   impaye: "bg-red-50 text-red-700",
@@ -223,10 +222,9 @@ export default function GestionnaireDashboard() {
             Voir tous
           </Link>
         </div>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {[
             { label: "À jour", count: data.a_jour, cls: "bg-emerald-50 text-emerald-600 border border-emerald-100/50", Icon: CheckCircle2 },
-            { label: "Partiel", count: data.partiel, cls: "bg-sky-50 text-sky-700 border border-sky-100/50", Icon: Clock },
             { label: "Attente", count: data.en_attente, cls: "bg-amber-50 text-amber-700 border border-amber-100/50", Icon: Clock },
             { label: "Retard", count: data.en_retard, cls: "bg-orange-50 text-orange-700 border border-orange-100/50", Icon: AlertTriangle },
             { label: "Impayé", count: data.impaye, cls: "bg-rose-50 text-rose-700 border border-rose-100/50", Icon: AlertTriangle },
@@ -242,17 +240,27 @@ export default function GestionnaireDashboard() {
 
       {/* PÉRIODE EN COURS */}
       {data.periode && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="card p-3.5 mb-6 flex items-center justify-between border border-wave-100">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-wave-50 text-wave-600">
-              <Calendar className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Période en cours</p>
-              <p className="text-sm font-extrabold text-wave-800">{fmtDate(data.periode.date_debut)} → {fmtDate(data.periode.date_fin)}</p>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="card mb-6 overflow-hidden border border-wave-100">
+          <div className="p-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-wave-50 text-wave-600">
+                <Calendar className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Période en cours</p>
+                <p className="text-sm font-extrabold text-wave-800">{fmtDate(data.periode.date_debut)} → {fmtDate(data.periode.date_fin)}</p>
+              </div>
             </div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-wave-600 bg-wave-50 px-2.5 py-1 rounded-lg">{groupe?.frequence}</span>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-wider text-wave-600 bg-wave-50 px-2.5 py-1 rounded-lg">{groupe?.frequence}</span>
+          {data.date_debut_cotisations && (
+            <div className="bg-wave-50/50 px-4 py-2 border-t border-wave-100/50 flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-wave-400" />
+              <p className="text-[11px] font-medium text-wave-600">
+                Début des cotisations : <span className="font-bold text-wave-800">{fmtDate(data.date_debut_cotisations)}</span>
+              </p>
+            </div>
+          )}
         </motion.div>
       )}
 

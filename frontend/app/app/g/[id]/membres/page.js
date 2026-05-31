@@ -11,7 +11,6 @@ import { api, fcfa } from "../../../../lib/api";
 
 const STATUT_COULEURS = {
   a_jour: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-  partiel: "bg-sky-50 text-sky-700 border border-sky-100",
   en_attente: "bg-amber-50 text-amber-700 border border-amber-100",
   en_retard: "bg-orange-50 text-orange-700 border border-orange-100",
   impaye: "bg-rose-50 text-rose-700 border border-rose-100",
@@ -19,7 +18,6 @@ const STATUT_COULEURS = {
 
 const STATUT_LABELS = {
   a_jour: "À jour",
-  partiel: "Paiement partiel",
   en_attente: "En attente",
   en_retard: "En retard",
   impaye: "Impayé",
@@ -28,7 +26,6 @@ const STATUT_LABELS = {
 const TAB_ACTIVE_COLORS = {
   all: "wave-bg text-white border-transparent shadow-md shadow-wave-200",
   a_jour: "bg-emerald-600 text-white border-transparent shadow-md shadow-emerald-200",
-  partiel: "bg-sky-600 text-white border-transparent shadow-md shadow-sky-200",
   en_attente: "bg-amber-600 text-white border-transparent shadow-md shadow-amber-200",
   en_retard: "bg-orange-600 text-white border-transparent shadow-md shadow-orange-200",
   impaye: "bg-rose-600 text-white border-transparent shadow-md shadow-rose-200",
@@ -66,7 +63,6 @@ export default function MembresPage() {
   const counts = {
     all: membres.length,
     a_jour: membres.filter(m => (m.statut_cotisation || "a_jour") === "a_jour").length,
-    partiel: membres.filter(m => (m.statut_cotisation || "a_jour") === "partiel").length,
     en_attente: membres.filter(m => (m.statut_cotisation || "a_jour") === "en_attente").length,
     en_retard: membres.filter(m => (m.statut_cotisation || "a_jour") === "en_retard").length,
     impaye: membres.filter(m => (m.statut_cotisation || "a_jour") === "impaye").length,
@@ -106,7 +102,6 @@ export default function MembresPage() {
           {[
             { id: "all", label: "Tous" },
             { id: "a_jour", label: "À jour" },
-            { id: "partiel", label: "Partiel" },
             { id: "en_attente", label: "En attente" },
             { id: "en_retard", label: "En retard" },
             { id: "impaye", label: "Impayés" },

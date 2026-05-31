@@ -301,9 +301,9 @@ class GeniusPayWebhookController extends Controller
         if ($paiement) {
             $paiement->update([
                 'statut' => $newStatus,
-                'note'   => 'Paiement Genius Pay mis à jour via webhook : ' . $event,
+                'note'   => null, // Pas de message technique visible par le membre
             ]);
-            Log::info("GeniusPay Webhook: statut du paiement {$transactionId} mis à jour vers [{$newStatus}]");
+            Log::info("GeniusPay Webhook: statut du paiement {$transactionId} mis à jour vers [{$newStatus}] (événement: {$event})");
         } else {
             Log::warning("GeniusPay Webhook: paiement {$transactionId} non trouvé pour mise à jour de statut");
         }

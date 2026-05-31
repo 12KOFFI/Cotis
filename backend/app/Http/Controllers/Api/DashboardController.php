@@ -19,6 +19,7 @@ class DashboardController extends Controller
         $this->authorizeGroupe($request, $groupe);
         $groupe->ensurePeriodsUpToDate();
         $periode = $groupe->periodes()->latest('date_debut')->first();
+        $premierePeriode = $groupe->periodes()->oldest('date_debut')->first();
 
         $membres = $groupe->membres;
         $membresActifs = $membres->whereIn('statut', ['actif', 'actif_non_verifie']);
@@ -28,7 +29,6 @@ class DashboardController extends Controller
         $totalRecu = 0;
         $aJour = 0;
         $enAttente = 0;
-        $partiel = 0;
         $enRetard = 0;
         $impaye = 0;
 
@@ -39,10 +39,9 @@ class DashboardController extends Controller
                 $montantVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)->sum('montant');
                 $totalRecu += min($montantVerse, $montantDu);
 
-                $statut = $membre->computeStatutCotisation($groupe, $periode);
+                $statut = $membre->computeStatutCotisation($groupe);
                 match ($statut) {
                     'a_jour'     => $aJour++,
-                    'partiel'    => $partiel++,
                     'en_attente' => $enAttente++,
                     'en_retard'  => $enRetard++,
                     'impaye'     => $impaye++,
@@ -65,7 +64,6 @@ class DashboardController extends Controller
             'taux_collecte'           => $tauxCollecte,
             'a_jour'                  => $aJour,
             'en_attente'              => $enAttente,
-            'partiel'                 => $partiel,
             'en_retard'               => $enRetard,
             'impaye'                  => $impaye,
             'nb_membres'              => $membres->count(),
@@ -75,6 +73,7 @@ class DashboardController extends Controller
             'solde_disponible'        => $groupe->caisse ? $groupe->caisse->solde_disponible : 0,
             'dernieres_transactions'  => $dernieresTransactions,
             'has_payments'            => $groupe->paiements()->exists(),
+            'date_debut_cotisations'  => $premierePeriode ? $premierePeriode->date_debut : null,
         ]);
     }
 
@@ -113,7 +112,7 @@ class DashboardController extends Controller
         }
 
         // Utilise la méthode centralisée du modèle Membre
-        $statut = $this->computeStatutGlobal($membre, $groupe, $periodes, $periode);
+        $statut = $membre->computeStatutCotisation($groupe);
 
         return response()->json([
             'membre'                   => $membre,
@@ -129,38 +128,4 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Calcule le statut global du membre sur toutes les périodes.
-     * Différent de computeStatutCotisation() qui ne regarde qu'une seule période.
-     */
-    private function computeStatutGlobal(Membre $membre, Groupe $groupe, $periodes, ?Periode $periodeCourante): string
-    {
-        $hasUnpaid = false;
-        $hasLatePayment = false;
-        $hasPartialPayment = false;
-        $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
-
-        foreach ($periodes as $periode) {
-            $montantVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)->sum('montant');
-            $manquant = max(0, $montantDu - $montantVerse);
-
-            if ($manquant > 0) {
-                $hasUnpaid = true;
-                if ($montantVerse > 0) $hasPartialPayment = true;
-            }
-
-            $hasLate = Paiement::cotisationReussie($membre->id, $periode->id)
-                ->where('date_paiement', '>', $periode->echeance)
-                ->exists();
-            if ($hasLate) $hasLatePayment = true;
-        }
-
-        if (!$hasUnpaid) {
-            return $hasLatePayment ? 'en_retard' : 'a_jour';
-        }
-        if ($hasPartialPayment) {
-            return ($periodeCourante && now()->gt($periodeCourante->echeance)) ? 'en_retard' : 'partiel';
-        }
-        return ($periodeCourante && now()->gt($periodeCourante->echeance)) ? 'impaye' : 'en_attente';
-    }
 }

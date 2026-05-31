@@ -52,35 +52,99 @@ class Membre extends Model
     /* ---------- Méthodes métier ---------- */
 
     /**
-     * Calcule le statut de cotisation du membre pour la période donnée.
+     * Calcule le statut de cotisation du membre pour la période donnée,
+     * ou le statut global sur toutes les périodes si aucune n'est spécifiée.
      * Logique centralisée — appelée par MembreController & DashboardController.
      */
     public function computeStatutCotisation(Groupe $groupe, ?Periode $periode = null): string
     {
-        if (!$periode) {
-            $periode = $groupe->periodes()->latest('date_debut')->first();
+        if ($periode) {
+            return $this->computeStatutForPeriode($groupe, $periode);
         }
-        if (!$periode) return 'a_jour';
 
+        return $this->computeStatutGlobal($groupe);
+    }
+
+    private function computeStatutForPeriode(Groupe $groupe, Periode $periode): string
+    {
         $montantDu = $this->montant_perso ?? $groupe->montant_standard;
         $montantVerse = (int) Paiement::cotisationReussie($this->id, $periode->id)->sum('montant');
-
         $echeanceDepassee = now()->gt($periode->echeance);
 
         // Totalité payée
         if ($montantVerse >= $montantDu) {
-            $hasLatePayment = Paiement::cotisationReussie($this->id, $periode->id)
-                ->where('date_paiement', '>', $periode->echeance)
-                ->exists();
-            return $hasLatePayment ? 'en_retard' : 'a_jour';
+            return 'a_jour';
         }
 
-        // Paiement partiel
-        if ($montantVerse > 0) {
-            return $echeanceDepassee ? 'en_retard' : 'partiel';
+        // Paiement partiel mais pas encore dépassé
+        if ($montantVerse > 0 && !$echeanceDepassee) {
+            return 'en_attente';
+        }
+        if ($montantVerse > 0 && $echeanceDepassee) {
+            return 'en_retard';
         }
 
         // Aucun paiement
         return $echeanceDepassee ? 'impaye' : 'en_attente';
+    }
+
+    private function computeStatutGlobal(Groupe $groupe): string
+    {
+        $periodes = $groupe->periodes()->orderBy('date_debut')->get();
+        if ($periodes->isEmpty()) return 'a_jour';
+
+        $hasImpaye = false;
+        $hasRetard = false;
+        $hasEcheanceDepassee = false;
+
+        $montantDu = $this->montant_perso ?? $groupe->montant_standard;
+
+        $paiements = Paiement::where('membre_id', $this->id)
+            ->where('groupe_id', $groupe->id)
+            ->where('type', 'cotisation')
+            ->where('statut', 'reussi')
+            ->get();
+
+        foreach ($periodes as $p) {
+            $echeanceDepassee = now()->gt($p->echeance);
+
+            // On s'intéresse uniquement aux échéances passées (échues)
+            if ($echeanceDepassee) {
+                $hasEcheanceDepassee = true;
+                $paiementsPeriode = $paiements->where('periode_id', $p->id);
+                $montantVerse = (int) $paiementsPeriode->sum('montant');
+
+                if ($montantVerse < $montantDu) {
+                    if ($montantVerse == 0) {
+                        $hasImpaye = true;
+                    } else {
+                        $hasRetard = true; // Paiement partiel sur une échéance échue
+                    }
+                }
+            }
+        }
+
+        // Règle 1 : Au moins une échéance échue n'a reçu aucun paiement
+        if ($hasImpaye) return 'impaye';
+
+        // Règle 2 : Au moins une échéance échue a été partiellement payée mais reste incomplète
+        if ($hasRetard) return 'en_retard';
+
+        // Règle 3 : Le membre a des échéances passées et elles sont toutes réglées.
+        // Il n'a aucune dette exigible, il est donc "À jour".
+        if ($hasEcheanceDepassee) {
+            return 'a_jour';
+        }
+
+        // Règle 4 : Aucune échéance n'est encore arrivée (nouveau membre).
+        // Vérifions s'il a déjà pris l'initiative de payer la période en cours.
+        $premierePeriode = $periodes->first();
+        $versementInitial = (int) $paiements->where('periode_id', $premierePeriode->id)->sum('montant');
+        
+        if ($versementInitial >= $montantDu) {
+            return 'a_jour'; // Il a payé en avance sans attendre la fin de l'échéance
+        }
+        // Aucun paiement fait (ou paiement partiel) et aucune échéance dépassée
+        return 'en_attente';
     }
 }

@@ -255,10 +255,19 @@ export default function MesPaiements() {
                   </div>
                 )}
 
-                {selected.note && (
-                  <div className="rounded-2xl bg-wave-50 p-4 border border-wave-100">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Note</p>
-                    <p className="mt-1 text-sm font-semibold text-wave-700">{selected.note}</p>
+                {(selected.statut === "echoue" || selected.statut === "annule") && (
+                  <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-start gap-3">
+                    <XCircle className="h-5 w-5 shrink-0 text-rose-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-rose-700 uppercase tracking-wider">
+                        {selected.statut === "annule" ? "Paiement annulé" : "Paiement échoué"}
+                      </p>
+                      <p className="mt-1 text-sm text-rose-600">
+                        {selected.statut === "annule"
+                          ? "Vous avez annulé ce paiement. Aucun montant n'a été débité."
+                          : "Ce paiement n'a pas pu aboutir. Veuillez réessayer ou contacter le support Wave."}
+                      </p>
+                    </div>
                   </div>
                 )}
 
