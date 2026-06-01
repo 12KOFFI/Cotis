@@ -60,15 +60,22 @@ class PaiementController extends Controller
 
     public function initierPaiement(Request $request, Groupe $groupe)
     {
-        $currentUser = $request->user();
-        $membre = $groupe->membres()->where('user_id', $currentUser->id)->first();
-        abort_unless($membre, 403, "Vous n'êtes pas membre de ce groupe.");
-
         $data = $request->validate([
             'type'           => 'required|in:cotisation,adhesion',
             'montant'        => 'nullable|integer|min:1',
             'montant_envoye' => 'nullable|integer|min:1',
+            'membre_id'      => 'nullable|exists:membres,id',
         ]);
+
+        $currentUser = $request->user();
+        
+        if (!empty($data['membre_id'])) {
+            abort_unless($groupe->gestionnaire_id === $currentUser->id || $currentUser->role === 'super_admin', 403, "Seul le gestionnaire peut initier un paiement pour un autre membre.");
+            $membre = $groupe->membres()->findOrFail($data['membre_id']);
+        } else {
+            $membre = $groupe->membres()->where('user_id', $currentUser->id)->first();
+            abort_unless($membre, 403, "Vous n'êtes pas membre de ce groupe.");
+        }
 
         if ($data['type'] === 'cotisation' && $groupe->adhesion_active) {
             $adhesionFrais = $membre->adhesion;

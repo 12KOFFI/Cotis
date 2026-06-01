@@ -508,6 +508,26 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
     }
     setErr("");
     setLoading(true);
+
+    if (f.mode === "wave_online") {
+      try {
+        const res = await api.post(`/groupes/${groupeId}/paiements/initier`, {
+          membre_id: f.membre_id,
+          type: f.type,
+          montant: f.montant,
+        });
+        if (res.data.checkout_url) {
+          window.open(res.data.checkout_url, "_blank");
+        }
+        onClose();
+      } catch (e) {
+        setErr(e.response?.data?.message || "Erreur lors de l'initiation.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append("membre_id", f.membre_id);
@@ -596,7 +616,8 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                   onChange={(e) => setF({ ...f, mode: e.target.value })}
                 >
                   <option value="cash">Cash</option>
-                  <option value="wave">Wave</option>
+                  <option value="wave_online">Lien Wave en Ligne (Automatique)</option>
+                  <option value="wave">Wave (Déjà payé - Saisie Manuelle)</option>
                   <option value="virement">Virement</option>
                   <option value="autre">Autre</option>
                 </select>
@@ -633,65 +654,69 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
               </div>
             </div>
 
-            <div>
-              <label className="label">Note</label>
-              <input
-                className="input"
-                placeholder="Optionnel"
-                value={f.note}
-                onChange={(e) => setF({ ...f, note: e.target.value })}
-              />
-            </div>
+            {f.mode !== "wave_online" && (
+              <div>
+                <label className="label">Note</label>
+                <input
+                  className="input"
+                  placeholder="Optionnel"
+                  value={f.note}
+                  onChange={(e) => setF({ ...f, note: e.target.value })}
+                />
+              </div>
+            )}
 
             {/* Justificatif upload */}
-            <div>
-              <label className="label">Justificatif (optionnel)</label>
-              <p className="text-[10px] text-wave-500 mb-2">
-                Image ou PDF — reçu, capture ou preuve de paiement (max 5 Mo)
-              </p>
-              {justificatif ? (
-                <div className="rounded-2xl border-2 border-dashed border-brand-200 bg-brand-50 p-3">
-                  <div className="flex items-center gap-3">
-                    {previewUrl ? (
-                      <img
-                        src={previewUrl}
-                        alt="Aperçu"
-                        className="h-14 w-14 rounded-xl object-cover"
-                      />
-                    ) : (
-                      <span className="grid h-14 w-14 place-items-center rounded-xl bg-white text-brand-600">
-                        <FileText className="h-6 w-6" />
-                      </span>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-semibold text-wave-800">
-                        {justificatif.name}
-                      </p>
-                      <p className="text-[10px] text-wave-500">
-                        {(justificatif.size / 1024).toFixed(0)} Ko
-                      </p>
+            {f.mode !== "wave_online" && (
+              <div>
+                <label className="label">Justificatif (optionnel)</label>
+                <p className="text-[10px] text-wave-500 mb-2">
+                  Image ou PDF — reçu, capture ou preuve de paiement (max 5 Mo)
+                </p>
+                {justificatif ? (
+                  <div className="rounded-2xl border-2 border-dashed border-brand-200 bg-brand-50 p-3">
+                    <div className="flex items-center gap-3">
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt="Aperçu"
+                          className="h-14 w-14 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <span className="grid h-14 w-14 place-items-center rounded-xl bg-white text-brand-600">
+                          <FileText className="h-6 w-6" />
+                        </span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-sm font-semibold text-wave-800">
+                          {justificatif.name}
+                        </p>
+                        <p className="text-[10px] text-wave-500">
+                          {(justificatif.size / 1024).toFixed(0)} Ko
+                        </p>
+                      </div>
+                      <button
+                        onClick={removeFile}
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    <button
-                      onClick={removeFile}
-                      className="grid h-8 w-8 place-items-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
                   </div>
-                </div>
-              ) : (
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-wave-200 bg-wave-50 px-4 py-6 text-sm font-semibold text-wave-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700">
-                  <Upload className="h-5 w-5" />
-                  <span>Choisir un fichier</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    className="hidden"
-                    onChange={handleFile}
-                  />
-                </label>
-              )}
-            </div>
+                ) : (
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-wave-200 bg-wave-50 px-4 py-6 text-sm font-semibold text-wave-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700">
+                    <Upload className="h-5 w-5" />
+                    <span>Choisir un fichier</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={handleFile}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
 
             {err && (
               <motion.p
@@ -712,7 +737,7 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                 disabled={loading || !f.membre_id || !f.montant}
                 className="btn-primary flex-1 !py-3"
               >
-                {loading ? "Enregistrement..." : "Enregistrer"}
+                {loading ? "Patientez..." : f.mode === "wave_online" ? "Générer le lien" : "Enregistrer"}
               </button>
             </div>
           </div>
