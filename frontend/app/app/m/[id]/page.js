@@ -225,6 +225,10 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
       setError("Montant invalide."); 
       return; 
     }
+    if (amountSent > 2000000 || amountReceived > 2000000) {
+      setError("Le montant maximum par transaction est de 2 000 000 FCFA.");
+      return;
+    }
     setError(""); setSubmitting(true);
     let isRedirecting = false;
     try {
@@ -293,7 +297,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
                 <div>
                   <label className="label mb-1.5 inline-block text-xs font-bold text-wave-500 uppercase tracking-wide">J'envoie</label>
                   <div className="relative">
-                    <input type="number" min="1" className="input text-lg font-bold w-full pr-16" placeholder="Ex: 5275" value={amountSent} onChange={(e) => handleSentChange(e.target.value)} />
+                    <input type="number" min="1" max="2000000" className="input text-lg font-bold w-full pr-16" placeholder="Ex: 5275" value={amountSent} onChange={(e) => handleSentChange(e.target.value)} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-wave-400">FCFA</span>
                   </div>
                 </div>
@@ -306,7 +310,7 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
                 <div>
                   <label className="label mb-1.5 inline-block text-xs font-bold text-wave-500 uppercase tracking-wide">Le bénéficiaire reçoit</label>
                   <div className="relative">
-                    <input type="number" min="1" className="input text-lg font-bold w-full pr-16 bg-wave-50/50" placeholder="Ex: 5000" value={amountReceived} onChange={(e) => handleReceivedChange(e.target.value)} />
+                    <input type="number" min="1" max="2000000" className="input text-lg font-bold w-full pr-16 bg-wave-50/50" placeholder="Ex: 5000" value={amountReceived} onChange={(e) => handleReceivedChange(e.target.value)} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-wave-400">FCFA</span>
                   </div>
                 </div>

@@ -32,7 +32,13 @@ class GeniusPayWebhookController extends Controller
         $dataToSign = $timestamp . '.' . $payload;
         $expected   = hash_hmac('sha256', $dataToSign, $secret);
         if (!hash_equals($expected, $signature)) {
-            Log::warning('GeniusPay webhook: signature invalide');
+            Log::warning('GeniusPay webhook: signature invalide', [
+                'received_signature' => $signature,
+                'expected_signature' => $expected,
+                'timestamp'          => $timestamp,
+                'payload_snippet'    => substr($payload, 0, 100),
+                'secret_prefix'      => substr($secret, 0, 10) . '...'
+            ]);
             return response()->json(['ok' => false, 'message' => 'Signature invalide'], 400);
         }
 

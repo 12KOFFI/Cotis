@@ -508,6 +508,10 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
       setErr("Veuillez remplir les champs obligatoires en rouge.");
       return;
     }
+    if (f.montant > 2000000) {
+      setErr("Le montant maximum par transaction est de 2 000 000 FCFA.");
+      return;
+    }
     setErr("");
     setLoading(true);
 
@@ -676,6 +680,7 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                 <input
                   type="number"
                   min="1"
+                  max="2000000"
                   className={`input ${hasSubmitted && !f.montant ? 'ring-1 ring-red-500 border-red-500 bg-red-50/10' : ''}`}
                   placeholder="0"
                   value={f.montant}
