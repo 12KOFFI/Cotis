@@ -17,9 +17,9 @@ class GeniusPayWebhookController extends Controller
     public function handle(Request $request)
 
     {
-         
 
-        
+
+
 
         // 1) Signature HMAC GeniusPay
         $secret    = config('services.geniuspay.webhook_secret', '');
@@ -295,7 +295,7 @@ class GeniusPayWebhookController extends Controller
     private function handlePaymentFailure(string $event, array $data)
     {
         $paymentData   = $data['data']['payment'] ?? $data['data'] ?? [];
-        $transactionId = $paymentData['id'] ?? $data['transaction_id'] ?? null;
+        $transactionId = $paymentData['reference'] ?? $paymentData['transaction_id'] ?? $paymentData['id'] ?? $data['transaction_id'] ?? null;
 
         if (!$transactionId) {
             return response()->json(['ok' => false, 'message' => 'ID de transaction manquant'], 422);
@@ -309,6 +309,24 @@ class GeniusPayWebhookController extends Controller
         $newStatus = $statusMap[$event] ?? 'echoue';
 
         $paiement = Paiement::where('transaction_id', $transactionId)->first();
+        
+        // Fallback par metadata si la transaction a été enregistrée avec l'ID au lieu de la référence
+        if (!$paiement) {
+            $metadata  = $paymentData['metadata'] ?? $data['metadata'] ?? [];
+            $groupeId  = (int) ($metadata['groupe_id'] ?? 0);
+            $membreId  = (int) ($metadata['membre_id'] ?? 0);
+            $montant   = (int) ($metadata['montant'] ?? $paymentData['amount'] ?? 0);
+            
+            if ($groupeId && $membreId) {
+                $paiement = Paiement::where('groupe_id', $groupeId)
+                    ->where('membre_id', $membreId)
+                    ->where('montant', $montant)
+                    ->where('statut', 'en_attente')
+                    ->latest()
+                    ->first();
+            }
+        }
+
         if ($paiement) {
             $paiement->update([
                 'statut' => $newStatus,
@@ -325,7 +343,7 @@ class GeniusPayWebhookController extends Controller
     private function handlePaymentSuccess(array $data)
     {
         $paymentData   = $data['data']['payment'] ?? $data['data'] ?? [];
-        $transactionId = $paymentData['id'] ?? $data['transaction_id'] ?? null;
+        $transactionId = $paymentData['reference'] ?? $paymentData['transaction_id'] ?? $paymentData['id'] ?? $data['transaction_id'] ?? null;
 
         if (!$transactionId) {
             return response()->json(['ok' => false, 'message' => 'ID de transaction manquant'], 422);
@@ -343,6 +361,40 @@ class GeniusPayWebhookController extends Controller
         $frais     = (int) ($metadata['frais'] ?? 0);
         $type      = $metadata['type'] ?? 'cotisation';
 
+        // Fallback: chercher le paiement en attente même s'il a été enregistré avec l'ID au lieu de la référence
+        $pendingPayment = Paiement::where('transaction_id', $transactionId)->where('statut', 'en_attente')->first();
+        if (!$pendingPayment && $groupeId && $membreId) {
+            $pendingPayment = Paiement::where('groupe_id', $groupeId)
+                ->where('membre_id', $membreId)
+                ->where('montant', $montant)
+                ->where('statut', 'en_attente')
+                ->where('type', $type)
+                ->latest()
+                ->first();
+                
+            // Utiliser le transaction_id enregistré en BDD pour que enregistrerPaiementConfirme le trouve et le supprime
+            if ($pendingPayment) {
+                $transactionId = $pendingPayment->transaction_id;
+            } else {
+                // S'il n'y a pas de paiement en attente, on vérifie si un paiement réussi a déjà été validé manuellement
+                // avec les mêmes métadonnées récemment, pour éviter les doublons sur les anciens webhooks en retry.
+                $recentSuccess = Paiement::where('groupe_id', $groupeId)
+                    ->where('membre_id', $membreId)
+                    ->where('montant', $montant)
+                    ->where('statut', 'reussi')
+                    ->where('type', $type)
+                    ->where('created_at', '>=', now()->subHours(24))
+                    ->exists();
+                    
+                if ($recentSuccess) {
+                    Log::info("GeniusPay Webhook: Doublon potentiel évité par fallback metadata", [
+                        'groupe_id' => $groupeId, 'membre_id' => $membreId, 'montant' => $montant
+                    ]);
+                    return response()->json(['ok' => true, 'idempotent' => true, 'fallback' => true]);
+                }
+            }
+        }
+
         $groupe = Groupe::find($groupeId);
         $membre = Membre::find($membreId);
 
@@ -357,7 +409,7 @@ class GeniusPayWebhookController extends Controller
 
         try {
             app(PaiementController::class)->enregistrerPaiementConfirme($groupe, $membre, $type, $montant, $transactionId);
-            
+
             return response()->json(['ok' => true]);
         } catch (\Throwable $exception) {
             Log::error('GeniusPay webhook: erreur lors du traitement', [

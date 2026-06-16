@@ -149,7 +149,7 @@ class PaiementController extends Controller
 
         $payload = $response->json();
         $paymentData = $payload['data'] ?? [];
-        $transactionId = $paymentData['id'] ?? $paymentData['reference'] ?? $payload['id'] ?? null;
+        $transactionId = $paymentData['reference'] ?? $paymentData['id'] ?? $payload['id'] ?? null;
 
         Log::info('GeniusPay: Réponse API', [
             'transaction_id' => $transactionId,
