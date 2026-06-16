@@ -675,34 +675,74 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={`label ${hasSubmitted && !f.montant ? 'text-red-500' : ''}`}>Montant (FCFA) *</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="2000000"
-                  className={`input ${hasSubmitted && !f.montant ? 'ring-1 ring-red-500 border-red-500 bg-red-50/10' : ''}`}
-                  placeholder="0"
-                  value={f.montant}
-                  onChange={(e) =>
-                    setF({
-                      ...f,
-                      montant: e.target.value ? parseInt(e.target.value) : "",
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <label className="label">Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={f.date_paiement}
-                  onChange={(e) =>
-                    setF({ ...f, date_paiement: e.target.value })
-                  }
-                />
-              </div>
+              {f.mode === 'wave_online' ? (
+                <>
+                  <div>
+                    <label className={`label ${hasSubmitted && !f.montant ? 'text-red-500' : ''} whitespace-nowrap`}>La caisse reçoit *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className={`input font-bold ${hasSubmitted && !f.montant ? 'ring-1 ring-red-500 border-red-500 bg-red-50/10' : ''}`}
+                      placeholder="Ex: 5000"
+                      value={f.montant}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setF({ ...f, montant: isNaN(val) ? "" : val });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-wave-500 whitespace-nowrap">Le membre paie</label>
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        className="input bg-[#1cb0f6]/5 text-[#1cb0f6] font-extrabold border-[#1cb0f6]/20" 
+                        value={f.montant ? Math.ceil((f.montant * 1.01 + 100) / 0.975) : ""} 
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val)) {
+                            const received = Math.max(0, Math.floor((val * 0.975 - 100) / 1.01));
+                            setF({ ...f, montant: received });
+                          } else {
+                            setF({ ...f, montant: "" });
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className={`label ${hasSubmitted && !f.montant ? 'text-red-500' : ''}`}>Montant (FCFA) *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="2000000"
+                      className={`input ${hasSubmitted && !f.montant ? 'ring-1 ring-red-500 border-red-500 bg-red-50/10' : ''}`}
+                      placeholder="0"
+                      value={f.montant}
+                      onChange={(e) =>
+                        setF({
+                          ...f,
+                          montant: e.target.value ? parseInt(e.target.value) : "",
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Date</label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={f.date_paiement}
+                      onChange={(e) =>
+                        setF({ ...f, date_paiement: e.target.value })
+                      }
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {f.mode !== "wave_online" && (
