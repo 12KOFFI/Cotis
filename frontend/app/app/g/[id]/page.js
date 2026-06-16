@@ -460,6 +460,7 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [loadingMembres, setLoadingMembres] = useState(true);
 
   useEffect(() => {
@@ -502,8 +503,9 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
   }
 
   async function submit() {
+    setHasSubmitted(true);
     if (!f.membre_id || !f.montant) {
-      setErr("Veuillez remplir les champs obligatoires.");
+      setErr("Veuillez remplir les champs obligatoires en rouge.");
       return;
     }
     setErr("");
@@ -581,7 +583,7 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                 <div className="h-10 animate-pulse rounded-xl bg-wave-100/60" />
               ) : (
                 <select
-                  className="input"
+                  className={`input ${hasSubmitted && !f.membre_id ? 'ring-1 ring-red-500 border-red-500 bg-red-50/10' : ''}`}
                   value={f.membre_id}
                   onChange={(e) => setF({ ...f, membre_id: e.target.value })}
                 >
@@ -670,11 +672,11 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Montant (FCFA) *</label>
+                <label className={`label ${hasSubmitted && !f.montant ? 'text-red-500' : ''}`}>Montant (FCFA) *</label>
                 <input
                   type="number"
                   min="1"
-                  className="input"
+                  className={`input ${hasSubmitted && !f.montant ? 'ring-1 ring-red-500 border-red-500 bg-red-50/10' : ''}`}
                   placeholder="0"
                   value={f.montant}
                   onChange={(e) =>
@@ -778,7 +780,7 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
               </button>
               <button
                 onClick={submit}
-                disabled={loading || !f.membre_id || !f.montant}
+                disabled={loading}
                 className="btn-primary flex-1 !py-3"
               >
                 {loading ? "Patientez..." : f.mode === "wave_online" ? "Générer le lien" : "Enregistrer"}
