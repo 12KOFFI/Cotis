@@ -624,14 +624,21 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                 </label>
 
                 {/* Option: Wave en ligne */}
-                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${f.mode === 'wave_online' ? 'border-[#1cb0f6] bg-[#1cb0f6]/5 ring-1 ring-[#1cb0f6]' : 'border-wave-100 hover:bg-wave-50/50'}`}>
+                <label className={`relative flex items-start gap-3.5 p-3 rounded-xl border cursor-pointer transition-all overflow-hidden ${f.mode === 'wave_online' ? 'border-[#1cb0f6] bg-[#1cb0f6]/[0.03] ring-1 ring-[#1cb0f6] shadow-sm' : 'border-wave-100 hover:bg-wave-50/50'}`}>
                   <input type="radio" name="mode" value="wave_online" checked={f.mode === 'wave_online'} onChange={(e) => setF({ ...f, mode: e.target.value })} className="hidden" />
-                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 ${f.mode === 'wave_online' ? 'bg-[#1cb0f6] text-white' : 'bg-[#1cb0f6]/10 text-[#1cb0f6]'}`}>
-                    <span className="font-black text-lg leading-none">W</span>
+                  
+                  {f.mode === 'wave_online' && (
+                    <div className="absolute top-0 right-0 rounded-bl-lg bg-[#1cb0f6] px-1.5 py-0.5">
+                      <CheckCircle2 className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+
+                  <div className={`flex shrink-0 h-10 w-10 items-center justify-center rounded-xl transition-all ${f.mode === 'wave_online' ? 'bg-white shadow-sm ring-1 ring-slate-900/5' : 'bg-white border border-slate-100 shadow-sm'}`}>
+                    <img src="/icons/wave.png" alt="Wave" className="h-6 w-6 object-contain" />
                   </div>
-                  <div>
-                    <p className={`text-sm font-bold leading-none mb-1.5 ${f.mode === 'wave_online' ? 'text-wave-900' : 'text-wave-700'}`}>Payer avec Wave</p>
-                    <p className="text-[10px] font-medium text-wave-500 leading-tight">Redirection vers Wave pour le paiement.</p>
+                  <div className="pt-0.5">
+                    <p className={`text-[13px] font-extrabold leading-none mb-1.5 ${f.mode === 'wave_online' ? 'text-[#1cb0f6]' : 'text-wave-700'}`}>Payer avec Wave</p>
+                    <p className="text-[10px] font-medium text-wave-500 leading-snug">Génère un lien de paiement automatique.</p>
                   </div>
                 </label>
 

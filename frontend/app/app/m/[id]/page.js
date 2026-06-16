@@ -149,8 +149,8 @@ export default function MemberDashboard() {
         {/* Boutons d'action sur la carte */}
         {!needsAdhesion && data.reste_a_payer > 0 && (
           <div className="relative mt-6 flex gap-3">
-            <button onClick={() => setConfirmOpen(true)} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-extrabold text-brand-600 shadow-sm transition-transform active:scale-95">
-              <Wallet className="h-5 w-5"/> Payer maintenant
+            <button onClick={() => setConfirmOpen(true)} className="flex flex-1 items-center justify-center gap-2.5 rounded-2xl bg-white py-3.5 text-sm font-extrabold text-brand-600 shadow-sm transition-transform active:scale-95 ring-1 ring-white/20 hover:bg-slate-50">
+              <img src="/icons/wave.png" alt="Wave" className="h-5 w-5 object-contain" /> Payer avec Wave
             </button>
           </div>
         )}
@@ -259,20 +259,27 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
         onClick={(e)=>e.stopPropagation()}
         className="flex flex-col w-full max-w-md rounded-t-3xl bg-white shadow-soft sm:rounded-3xl max-h-[90vh]"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-wave-100 px-5 py-4">
-          <h3 className="font-display text-lg font-extrabold">Payer avec Wave</h3>
-          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full border border-wave-100 text-wave-500 transition hover:bg-wave-50 hover:text-wave-700">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#1cb0f6]/20 bg-[#1cb0f6]/5 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex shrink-0 h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-900/5">
+              <img src="/icons/wave.png" alt="Wave" className="h-6 w-6 object-contain" />
+            </div>
+            <h3 className="font-display text-lg font-extrabold text-[#1cb0f6]">Payer avec Wave</h3>
+          </div>
+          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full border border-wave-200 bg-white text-wave-500 transition hover:bg-wave-50 hover:text-wave-700 shadow-sm">
             <X className="h-4 w-4"/>
           </button>
         </div>
 
         <div className="overflow-y-auto px-5 pb-5">
-          <div className="space-y-4 pt-3">
-              <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-100 flex items-start gap-2.5">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5"/>
+          <div className="space-y-4 pt-4">
+              <div className="rounded-2xl bg-gradient-to-br from-[#1cb0f6]/10 to-[#1cb0f6]/5 p-4 border border-[#1cb0f6]/20 flex items-start gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#1cb0f6]/20 text-[#1cb0f6]">
+                  <CheckCircle2 className="h-5 w-5"/>
+                </div>
                 <div>
-                  <p className="text-xs font-bold text-emerald-800">Paiement 100% sécurisé</p>
-                  <p className="mt-0.5 text-xs text-emerald-700">Vous allez être redirigé vers l'espace Wave pour valider votre transaction en toute sécurité.</p>
+                  <p className="text-[13px] font-bold text-[#1cb0f6]">Paiement 100% sécurisé</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-wave-600 leading-snug">Vous allez être redirigé vers l'application Wave pour valider votre transaction en toute sécurité.</p>
                 </div>
               </div>
               
@@ -309,8 +316,20 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
                 <motion.p initial={{opacity:0,y:-5}} animate={{opacity:1,y:0}} className="rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700">{error}</motion.p>
               )}
 
-              <button onClick={submit} disabled={submitting || !amountSent || !amountReceived} className="btn-primary w-full !py-3.5 text-base mt-2 shadow-md shadow-brand-500/20">
-                {submitting ? "Redirection en cours..." : `Payer ${amountSent ? fcfa(amountSent) : ''}`}
+              <button onClick={submit} disabled={submitting || !amountSent || !amountReceived} className="flex items-center justify-center gap-2 w-full rounded-2xl bg-[#1cb0f6] py-3.5 text-base font-extrabold text-white shadow-lg shadow-[#1cb0f6]/30 transition-all hover:bg-[#189de0] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none mt-2">
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Redirection...
+                  </span>
+                ) : (
+                  <>
+                    <span>Payer {amountSent ? fcfa(amountSent) : ''}</span>
+                    <div className="bg-white rounded-md p-1 ml-1 shadow-sm">
+                      <img src="/icons/wave.png" alt="Wave" className="h-4 w-4 object-contain" />
+                    </div>
+                  </>
+                )}
               </button>
             </div>
         </div>

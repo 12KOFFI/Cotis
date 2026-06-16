@@ -1,15 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // En dev local, autorise les origines réseau
-  allowedDevOrigins: ["192.168.1.12"],
-
   // Optimisation images : si pas de domaine externe, laisser vide
-  // En production sur Vercel, les images sont auto-optimisées
+  // En production, les images sont auto-optimisées
   images: {
     remotePatterns: [
+      // Autorise TOUS les domaines en HTTPS (pour votre serveur de production)
       {
         protocol: "https",
         hostname: "**",
+      },
+      // Autorise le backend local en HTTP pour le développement
+      {
+        protocol: "http",
+        hostname: "localhost",
+      },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
       },
     ],
   },
