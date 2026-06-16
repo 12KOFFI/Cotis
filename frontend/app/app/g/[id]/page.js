@@ -595,32 +595,69 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Type</label>
-                <select
-                  className="input"
-                  value={f.type}
-                  onChange={(e) => setF({ ...f, type: e.target.value })}
-                >
-                  <option value="cotisation">Cotisation</option>
-                  <option value="adhesion">Adhésion</option>
-                  <option value="autre">Autre</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Mode</label>
-                <select
-                  className="input"
-                  value={f.mode}
-                  onChange={(e) => setF({ ...f, mode: e.target.value })}
-                >
-                  <option value="cash">Cash</option>
-                  <option value="wave_online">Lien Wave en Ligne (Automatique)</option>
-                  <option value="wave">Wave (Déjà payé - Saisie Manuelle)</option>
-                  <option value="virement">Virement</option>
-                  <option value="autre">Autre</option>
-                </select>
+            <div>
+              <label className="label">Type</label>
+              <select
+                className="input"
+                value={f.type}
+                onChange={(e) => setF({ ...f, type: e.target.value })}
+              >
+                <option value="cotisation">Cotisation</option>
+                <option value="adhesion">Adhésion</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="label mb-2 block">Mode de paiement</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Option: Espèces */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${f.mode === 'cash' ? 'border-wave-600 bg-wave-50 ring-1 ring-wave-600' : 'border-wave-100 hover:bg-wave-50/50'}`}>
+                  <input type="radio" name="mode" value="cash" checked={f.mode === 'cash'} onChange={(e) => setF({ ...f, mode: e.target.value })} className="hidden" />
+                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 ${f.mode === 'cash' ? 'bg-wave-600 text-white' : 'bg-wave-100 text-wave-600'}`}>
+                    <Wallet className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold leading-none mb-1.5 ${f.mode === 'cash' ? 'text-wave-900' : 'text-wave-700'}`}>Espèces (Cash)</p>
+                    <p className="text-[10px] font-medium text-wave-500 leading-tight">Paiement direct remis en main propre.</p>
+                  </div>
+                </label>
+
+                {/* Option: Wave en ligne */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${f.mode === 'wave_online' ? 'border-[#1cb0f6] bg-[#1cb0f6]/5 ring-1 ring-[#1cb0f6]' : 'border-wave-100 hover:bg-wave-50/50'}`}>
+                  <input type="radio" name="mode" value="wave_online" checked={f.mode === 'wave_online'} onChange={(e) => setF({ ...f, mode: e.target.value })} className="hidden" />
+                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 ${f.mode === 'wave_online' ? 'bg-[#1cb0f6] text-white' : 'bg-[#1cb0f6]/10 text-[#1cb0f6]'}`}>
+                    <span className="font-black text-lg leading-none">W</span>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold leading-none mb-1.5 ${f.mode === 'wave_online' ? 'text-wave-900' : 'text-wave-700'}`}>Payer avec Wave</p>
+                    <p className="text-[10px] font-medium text-wave-500 leading-tight">Redirection vers Wave pour le paiement.</p>
+                  </div>
+                </label>
+
+                {/* Option: Déjà payé */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${f.mode === 'wave' ? 'border-wave-600 bg-wave-50 ring-1 ring-wave-600' : 'border-wave-100 hover:bg-wave-50/50'}`}>
+                  <input type="radio" name="mode" value="wave" checked={f.mode === 'wave'} onChange={(e) => setF({ ...f, mode: e.target.value })} className="hidden" />
+                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 ${f.mode === 'wave' ? 'bg-wave-600 text-white' : 'bg-wave-100 text-wave-600'}`}>
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold leading-none mb-1.5 ${f.mode === 'wave' ? 'text-wave-900' : 'text-wave-700'}`}>Déjà payé</p>
+                    <p className="text-[10px] font-medium text-wave-500 leading-tight">Transfert Wave déjà effectué.</p>
+                  </div>
+                </label>
+
+                {/* Option: Autre */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${f.mode === 'autre' ? 'border-wave-600 bg-wave-50 ring-1 ring-wave-600' : 'border-wave-100 hover:bg-wave-50/50'}`}>
+                  <input type="radio" name="mode" value="autre" checked={f.mode === 'autre'} onChange={(e) => setF({ ...f, mode: e.target.value })} className="hidden" />
+                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 ${f.mode === 'autre' ? 'bg-wave-600 text-white' : 'bg-wave-100 text-wave-600'}`}>
+                    <PlusCircle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold leading-none mb-1.5 ${f.mode === 'autre' ? 'text-wave-900' : 'text-wave-700'}`}>Autre (Virement...)</p>
+                    <p className="text-[10px] font-medium text-wave-500 leading-tight">Orange Money, MTN, Virement, etc.</p>
+                  </div>
+                </label>
               </div>
             </div>
 

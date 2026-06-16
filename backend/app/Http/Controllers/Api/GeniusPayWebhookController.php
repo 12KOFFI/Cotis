@@ -15,7 +15,12 @@ use Illuminate\Support\Facades\Log;
 class GeniusPayWebhookController extends Controller
 {
     public function handle(Request $request)
+
     {
+         
+
+        
+
         // 1) Signature HMAC GeniusPay
         $secret    = config('services.geniuspay.webhook_secret', '');
         $signature = $request->header('X-Webhook-Signature') ?? '';
