@@ -59,6 +59,20 @@ class SuperAdminController extends Controller
         $user->password = \Illuminate\Support\Facades\Hash::make($data['password']);
         $user->save();
 
+        // Sécurité : invalider tous les tokens existants pour forcer la reconnexion
+        $user->tokens()->delete();
+
+        // Audit : log critique de l'opération avec traçabilité complète
+        \Illuminate\Support\Facades\Log::critical('AUDIT — SuperAdmin password reset', [
+            'admin_id'     => $request->user()->id,
+            'admin_email'  => $request->user()->email,
+            'target_email' => $data['email'],
+            'target_id'    => $user->id,
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+            'timestamp'    => now()->toIso8601String(),
+        ]);
+
         return response()->json(['message' => 'Mot de passe mis à jour avec succès.', 'user' => $user]);
     }
 

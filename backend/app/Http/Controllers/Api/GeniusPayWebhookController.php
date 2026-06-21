@@ -42,6 +42,16 @@ class GeniusPayWebhookController extends Controller
             return response()->json(['ok' => false, 'message' => 'Signature invalide'], 400);
         }
 
+        // Sécurité : rejeter les webhooks trop anciens (anti-rejeu)
+        $webhookAge = abs(time() - (int) $timestamp);
+        if ($webhookAge > 300) { // 5 minutes max
+            Log::warning('GeniusPay webhook: timestamp expiré', [
+                'age_seconds' => $webhookAge,
+                'timestamp'   => $timestamp,
+            ]);
+            return response()->json(['ok' => false, 'message' => 'Webhook timestamp expired'], 400);
+        }
+
         $data  = $request->json()->all();
         $event = $request->header('X-Webhook-Event') ?? $data['event'] ?? '';
 

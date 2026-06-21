@@ -47,7 +47,7 @@ return [
     |
     */
 
-    'expiration' => null,
+    'expiration' => 1440, // 24 heures — les tokens expirent pour limiter l'impact d'un vol
 
     /*
     |--------------------------------------------------------------------------

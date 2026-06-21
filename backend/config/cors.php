@@ -6,9 +6,9 @@ return [
     'allowed_origins' => array_filter([
         env('FRONTEND_URL', 'http://localhost:3000'),
     ]),
-    // Autorise tous les sous-domaines Vercel (previews)
+    // Restreint aux sous-domaines Vercel du projet (cotis*.vercel.app)
     'allowed_origins_patterns' => [
-        '/^https:\/\/.*\.vercel\.app$/',
+        '/^https:\/\/cotis[a-z0-9-]*\.vercel\.app$/',
     ],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],

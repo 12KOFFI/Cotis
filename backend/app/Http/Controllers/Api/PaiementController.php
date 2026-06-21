@@ -99,6 +99,25 @@ class PaiementController extends Controller
 
         abort_if($montant <= 0, 422, 'Aucun montant à payer.');
 
+        // ── Sécurité : Valider le montant contre ce que le membre doit réellement ──
+        // Empêche un membre d'envoyer un montant arbitrairement bas via une requête API directe.
+        $montantDuCalcule = $data['type'] === 'adhesion'
+            ? max(0, (int)(($membre->adhesion?->montant_du ?? $groupe->adhesion_montant) - ($membre->adhesion?->montant_paye ?? 0)))
+            : $this->resteCotisation($groupe, $membre);
+
+        if ($montantDuCalcule > 0) {
+            // Le montant minimum est le montant d'une période (ou ce qui reste si < 1 période)
+            $montantMinimum = min($groupe->montant_standard, $montantDuCalcule);
+            abort_if($montant < $montantMinimum, 422,
+                "Le montant minimum est de {$montantMinimum} FCFA.");
+            // Plafonner au montant réellement dû pour éviter les excédents abusifs
+            if ($montant > $montantDuCalcule) {
+                $montant = $montantDuCalcule;
+                $montantEnvoye = (int) ceil(($montant * 1.01 + 100) / 0.975);
+                $frais = $montantEnvoye - $montant;
+            }
+        }
+
         Log::info('GeniusPay: Initiation paiement', [
             'montant_net'    => $montant,
             'frais'          => $frais,

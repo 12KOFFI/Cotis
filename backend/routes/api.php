@@ -22,19 +22,23 @@ use App\Http\Controllers\Api\AdminMerchantController;
 // Public
 Route::middleware('throttle:10,1')->post('/auth/register', [AuthController::class, 'register']);
 Route::middleware('throttle:6,1')->post('/auth/login', [AuthController::class, 'login']);
-Route::post('/auth/accept-invitation', [AuthController::class, 'acceptInvitation']);
-Route::get('/invitations/{token}', [InvitationController::class, 'verify']);
-Route::get('/join/{token}', [JoinController::class, 'show']);
-Route::post('/join/{token}', [JoinController::class, 'join']);
-Route::get('/public/membre/{membre}/history', [CarteController::class, 'publicHistory']);
-Route::get('/public/gestionnaire/{user}/portail', [CarteController::class, 'publicPortail']);
-Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres', [CarteController::class, 'publicPortailMembres']);
-Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres/{membre}/paiements', [CarteController::class, 'publicPortailPaiements']);
+Route::middleware('throttle:5,1')->post('/auth/accept-invitation', [AuthController::class, 'acceptInvitation']);
+Route::middleware('throttle:10,1')->get('/invitations/{token}', [InvitationController::class, 'verify']);
+Route::middleware('throttle:10,1')->get('/join/{token}', [JoinController::class, 'show']);
+Route::middleware('throttle:5,1')->post('/join/{token}', [JoinController::class, 'join']);
 
-Route::get('/public/profil/{user}', [CarteController::class, 'publicProfil']);
-Route::get('/public/profil/{user}/groupes/{groupe}/paiements', [CarteController::class, 'publicProfilPaiements']);
-Route::post('/webhooks/geniuspay', [GeniusPayWebhookController::class, 'handle']);
-Route::get('/acces/{token}', [MembreAccesController::class, 'show']);
+// Routes publiques protégées par rate limiting
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/public/membre/{membre}/history', [CarteController::class, 'publicHistory']);
+    Route::get('/public/gestionnaire/{user}/portail', [CarteController::class, 'publicPortail']);
+    Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres', [CarteController::class, 'publicPortailMembres']);
+    Route::get('/public/gestionnaire/{user}/groupes/{groupe}/membres/{membre}/paiements', [CarteController::class, 'publicPortailPaiements']);
+    Route::get('/public/profil/{user}', [CarteController::class, 'publicProfil']);
+    Route::get('/public/profil/{user}/groupes/{groupe}/paiements', [CarteController::class, 'publicProfilPaiements']);
+    Route::get('/acces/{token}', [MembreAccesController::class, 'show']);
+});
+
+Route::middleware('throttle:30,1')->post('/webhooks/geniuspay', [GeniusPayWebhookController::class, 'handle']);
 
 // Authenticated
 Route::middleware('auth:sanctum')->group(function () {
@@ -98,7 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/groupes/{groupe}/export/pdf', [ExportController::class, 'pdf']);
 
     // Super Admin
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('role:super_admin')->group(function () {
         Route::get('/overview', [SuperAdminController::class, 'overview']);
         Route::get('/users', [SuperAdminController::class, 'users']);
         Route::post('/users/update-password', [SuperAdminController::class, 'updateUserPassword']);
