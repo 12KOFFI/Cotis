@@ -106,8 +106,9 @@ class PaiementController extends Controller
             : $this->resteCotisation($groupe, $membre);
 
         if ($montantDuCalcule > 0) {
-            // Le montant minimum est le montant d'une période (ou ce qui reste si < 1 période)
-            $montantMinimum = min($groupe->montant_standard, $montantDuCalcule);
+            // Le montant minimum = cotisation d'une période pour CE membre (perso ou standard)
+            $cotisationMembre = $membre->montant_perso ?? $groupe->montant_standard;
+            $montantMinimum = min($cotisationMembre, $montantDuCalcule);
             abort_if($montant < $montantMinimum, 422,
                 "Le montant minimum est de {$montantMinimum} FCFA.");
             // Plafonner au montant réellement dû pour éviter les excédents abusifs
