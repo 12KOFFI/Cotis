@@ -408,9 +408,11 @@ class PaiementController extends Controller
         } else {
             // Cotisation : imputation par ancienneté sur périodes impayées
             $periodes = $groupe->periodes()->orderBy('date_debut')->get();
+            $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
+
+            // 1. Imputer sur les périodes existantes
             foreach ($periodes as $periode) {
                 if ($reste <= 0) break;
-                $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
                 $montantDejaVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)->sum('montant');
                 $manquant = max(0, $montantDu - $montantDejaVerse);
                 if ($manquant <= 0) continue;
@@ -425,7 +427,22 @@ class PaiementController extends Controller
                 $reste -= $aImputer;
             }
 
-            // Excédent -> crédit reporté
+            // 2. Générer de futures périodes si paiement en avance
+            while ($reste > 0 && $groupe->frequence !== 'autre') {
+                $periode = $groupe->generateNextPeriod();
+                if (!$periode) break;
+
+                $aImputer = min($montantDu, $reste);
+                $paiement = $this->createPaiement($groupe, $membre, $periode, $data, $aImputer, $userId);
+                if ($transactionId && empty($paiements)) {
+                    $paiement->transaction_id = $transactionId;
+                    $paiement->save();
+                }
+                $paiements[] = $paiement;
+                $reste -= $aImputer;
+            }
+
+            // 3. Excédent restant -> crédit reporté
             if ($reste > 0) {
                 CreditMembre::create([
                     'groupe_id'         => $groupe->id,

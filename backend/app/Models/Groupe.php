@@ -86,4 +86,35 @@ class Groupe extends Model
             $start = $end->copy()->addDay();
         }
     }
+
+    public function generateNextPeriod(): ?Periode
+    {
+        if ($this->frequence === 'autre') {
+            return null; // Cannot auto-generate if random dates without user input
+        }
+
+        $latest = $this->periodes()->latest('date_debut')->first();
+        if (!$latest) {
+            $start = Carbon::parse($this->date_debut)->startOfDay();
+        } else {
+            $start = Carbon::parse($latest->date_fin)->addDay()->startOfDay();
+        }
+
+        $end = match ($this->frequence) {
+            'hebdomadaire' => $start->copy()->addWeek()->subDay(),
+            'mensuelle' => $start->copy()->addMonth()->subDay(),
+            'trimestrielle' => $start->copy()->addMonths(3)->subDay(),
+            'annuelle' => $start->copy()->addYear()->subDay(),
+            default => $start->copy()->addMonth()->subDay(),
+        };
+
+        $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
+        return Periode::create([
+            'groupe_id' => $this->id,
+            'date_debut' => $start,
+            'date_fin' => $end,
+            'echeance' => $end,
+            'montant_attendu' => $this->montant_standard * $nbMembres,
+        ]);
+    }
 }

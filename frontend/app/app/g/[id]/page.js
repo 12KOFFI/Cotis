@@ -412,6 +412,7 @@ export default function GestionnaireDashboard() {
       {payOpen && (
         <EnregistrerPaiementModal
           groupeId={id}
+          groupe={groupe}
           onClose={() => {
             setPayOpen(false);
             loadDashboard();
@@ -446,7 +447,7 @@ export default function GestionnaireDashboard() {
   );
 }
 
-function EnregistrerPaiementModal({ groupeId, onClose }) {
+function EnregistrerPaiementModal({ groupeId, groupe, onClose }) {
   const [membres, setMembres] = useState([]);
   const [f, setF] = useState({
     membre_id: "",
@@ -553,6 +554,16 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  const selectedMembre = membres.find(m => m.id === parseInt(f.membre_id));
+  const montantDu = selectedMembre?.montant_perso || groupe?.montant_standard || 0;
+  
+  let periodsCovered = 0;
+  let remainingAmount = 0;
+  if (montantDu > 0 && f.montant > 0 && f.type === "cotisation") {
+    periodsCovered = Math.floor(f.montant / montantDu);
+    remainingAmount = f.montant % montantDu;
   }
 
   return (
@@ -690,6 +701,19 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                         setF({ ...f, montant: isNaN(val) ? "" : val });
                       }}
                     />
+                    {f.type === "cotisation" && montantDu > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <button type="button" onClick={() => setF({...f, montant: montantDu})} className="text-[10px] font-bold bg-wave-100 text-wave-700 px-2 py-1 rounded hover:bg-wave-200 transition">+1 Période</button>
+                        <button type="button" onClick={() => setF({...f, montant: montantDu * 2})} className="text-[10px] font-bold bg-wave-100 text-wave-700 px-2 py-1 rounded hover:bg-wave-200 transition">+2</button>
+                        <button type="button" onClick={() => setF({...f, montant: montantDu * 5})} className="text-[10px] font-bold bg-wave-100 text-wave-700 px-2 py-1 rounded hover:bg-wave-200 transition">+5</button>
+                      </div>
+                    )}
+                    {f.type === "cotisation" && f.montant > 0 && montantDu > 0 && (
+                      <p className="mt-1.5 text-[10px] font-semibold text-brand-600">
+                        Couvre ~{periodsCovered} période{periodsCovered > 1 ? 's' : ''} 
+                        {remainingAmount > 0 && ` (+${remainingAmount}F partiel)`}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label text-wave-500 whitespace-nowrap">Le membre paie</label>
@@ -729,6 +753,19 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                         })
                       }
                     />
+                    {f.type === "cotisation" && montantDu > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <button type="button" onClick={() => setF({...f, montant: montantDu})} className="text-[10px] font-bold bg-wave-100 text-wave-700 px-2 py-1 rounded hover:bg-wave-200 transition">+1 Période</button>
+                        <button type="button" onClick={() => setF({...f, montant: montantDu * 2})} className="text-[10px] font-bold bg-wave-100 text-wave-700 px-2 py-1 rounded hover:bg-wave-200 transition">+2</button>
+                        <button type="button" onClick={() => setF({...f, montant: montantDu * 5})} className="text-[10px] font-bold bg-wave-100 text-wave-700 px-2 py-1 rounded hover:bg-wave-200 transition">+5</button>
+                      </div>
+                    )}
+                    {f.type === "cotisation" && f.montant > 0 && montantDu > 0 && (
+                      <p className="mt-1.5 text-[10px] font-semibold text-brand-600">
+                        Couvre ~{periodsCovered} période{periodsCovered > 1 ? 's' : ''} 
+                        {remainingAmount > 0 && ` (+${remainingAmount}F partiel)`}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Date</label>
@@ -817,6 +854,15 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
               >
                 {err}
               </motion.p>
+            )}
+
+            {f.type === "cotisation" && f.montant > 0 && montantDu > 0 && (
+              <div className="rounded-xl bg-brand-50 border border-brand-100 p-3 mt-1">
+                <p className="text-xs text-brand-800">
+                  <span className="font-bold">Résumé :</span> Vous allez enregistrer {periodsCovered} versement{periodsCovered > 1 ? 's' : ''} complet{periodsCovered > 1 ? 's' : ''} de {montantDu} FCFA
+                  {remainingAmount > 0 ? ` et un partiel de ${remainingAmount} FCFA.` : '.'}
+                </p>
+              </div>
             )}
 
             <div className="flex gap-2 pt-1">
