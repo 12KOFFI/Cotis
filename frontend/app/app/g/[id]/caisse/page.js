@@ -20,6 +20,9 @@ import {
   Send,
   AlertTriangle,
   Loader2,
+  Users,
+  Filter,
+  User,
 } from "lucide-react";
 import AppShell from "../../../../components/AppShell";
 import PhoneInput from "../../../../components/PhoneInput";
@@ -37,6 +40,7 @@ export default function CaissePage() {
 
   const [preuveUrl, setPreuveUrl] = useState(null);
   const [preuveLoading, setPreuveLoading] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState("ALL");
 
   async function load() {
     const [r, grp] = await Promise.all([
@@ -51,6 +55,33 @@ export default function CaissePage() {
     if (!id || id === "undefined") return;
     load();
   }, [id]);
+
+  // Derive members from ledger
+  const membersMap = new Map();
+  data?.ledger?.forEach(l => {
+    if (l.paiement?.membre) {
+      membersMap.set(l.paiement.membre.id, l.paiement.membre);
+    }
+  });
+  const members = Array.from(membersMap.values()).sort((a, b) => {
+    const nameA = (a.prenom + " " + a.nom).toLowerCase();
+    const nameB = (b.prenom + " " + b.nom).toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  // Filter ledger
+  const filteredLedger = data?.ledger?.filter(l => {
+    if (selectedMemberId === "ALL") return true;
+    return l.paiement?.membre?.id === parseInt(selectedMemberId);
+  }) || [];
+
+  // KPIs
+  const isFiltered = selectedMemberId !== "ALL";
+  const memberEntries = filteredLedger.filter(l => l.type === "entree" && l.paiement?.membre?.id === parseInt(selectedMemberId));
+  const totalVerse = memberEntries.reduce((acc, l) => acc + l.montant, 0);
+  const totalVersements = memberEntries.length;
+  const sortedMemberEntries = [...memberEntries].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+  const dernierVersement = sortedMemberEntries.length > 0 ? (sortedMemberEntries[0].created_at || sortedMemberEntries[0].date) : null;
 
   return (
     <AppShell title="Caisse" groupeId={id} back>
@@ -121,14 +152,84 @@ export default function CaissePage() {
             </div>
           </motion.div>
 
+          {/* FILTRE PAR MEMBRE */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <Filter className="h-4 w-4 text-wave-500" />
+              <h3 className="text-sm font-bold text-wave-900">Filtrer par membre</h3>
+            </div>
+            <div className="relative">
+              <select
+                className="w-full appearance-none rounded-2xl bg-white border border-wave-200 py-3.5 pl-11 pr-10 text-sm font-semibold text-wave-900 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm"
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+              >
+                <option value="ALL">Tous les membres</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.prenom} {m.nom}</option>
+                ))}
+              </select>
+              <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-wave-400" />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="h-4 w-4 text-wave-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI DU MEMBRE SÉLECTIONNÉ */}
+          <AnimatePresence>
+            {isFiltered && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                animate={{ opacity: 1, height: "auto", scale: 1 }}
+                exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                className="mb-8 overflow-hidden"
+              >
+                <div className="rounded-[1.5rem] bg-gradient-to-br from-brand-50 to-white p-5 border border-brand-100 shadow-sm mt-1">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="grid h-10 w-10 place-items-center rounded-full bg-brand-100 text-brand-600">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-wave-900">
+                        {members.find(m => m.id === parseInt(selectedMemberId))?.prenom} {members.find(m => m.id === parseInt(selectedMemberId))?.nom}
+                      </h4>
+                      <p className="text-[11px] font-medium text-wave-500">Statistiques des versements</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="rounded-xl bg-white p-3.5 border border-wave-100/60 shadow-sm">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400 mb-1">Total Versé</p>
+                      <p className="text-lg font-extrabold text-brand-700">{fcfa(totalVerse).replace(' FCFA', '')} <span className="text-xs font-bold text-brand-400">F</span></p>
+                    </div>
+                    <div className="rounded-xl bg-white p-3.5 border border-wave-100/60 shadow-sm">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400 mb-1">Versements</p>
+                      <p className="text-lg font-extrabold text-wave-900">{totalVersements}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="rounded-xl bg-white p-3.5 border border-wave-100/60 flex items-center justify-between shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Dernier versement</p>
+                    <p className="text-sm font-bold text-wave-800">
+                      {dernierVersement ? fmtDate(dernierVersement) : "—"}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* HISTORIQUE DU GRAND LIVRE */}
           <div className="flex items-center justify-between mb-4 px-1">
-            <h3 className="text-base font-bold text-wave-900">Mouvements</h3>
-            <span className="text-xs font-medium text-wave-500 bg-wave-50 px-2 py-1 rounded-md">{data.ledger.length} opération{data.ledger.length !== 1 ? "s" : ""}</span>
+            <h3 className="text-base font-bold text-wave-900">
+              {isFiltered ? "Mouvements du membre" : "Mouvements"}
+            </h3>
+            <span className="text-xs font-medium text-wave-500 bg-wave-50 px-2 py-1 rounded-md">{filteredLedger.length} opération{filteredLedger.length !== 1 ? "s" : ""}</span>
           </div>
           
           <div className="space-y-2.5 pb-10">
-            {data.ledger.length === 0 ? (
+            {filteredLedger.length === 0 ? (
               <div className="rounded-[1.5rem] bg-wave-50 py-8 text-center border-2 border-dashed border-wave-200">
                 <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-white text-wave-400 shadow-sm">
                   <History className="h-6 w-6" />
@@ -137,7 +238,7 @@ export default function CaissePage() {
               </div>
             ) : (() => {
               // Grouper les mouvements par date (style Wave)
-              const sorted = [...data.ledger].sort((a, b) => {
+              const sorted = [...filteredLedger].sort((a, b) => {
                 const da = new Date(a.created_at || a.date);
                 const db = new Date(b.created_at || b.date);
                 return db - da;
