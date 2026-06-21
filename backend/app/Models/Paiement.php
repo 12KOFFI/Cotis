@@ -11,6 +11,10 @@ class Paiement extends Model
         'montant', 'mode', 'statut', 'date_paiement',
         'transaction_id', 'note', 'preuve_path', 'modifie',
         'historique', 'enregistre_par',
+        // Champs financiers : séparation stricte net / frais
+        'montant_membre',        // Montant total réellement débité au membre (net + frais)
+        'frais_gateway',         // Frais prélevés par GeniusPay/Wave (2.5% + 100F)
+        'commission_plateforme', // Commission CotisPro (1%)
     ];
 
     protected $casts = [

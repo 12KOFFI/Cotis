@@ -23,6 +23,11 @@ const STATUT_LABEL = {
 
 /**
  * Regroupe les sous-paiements d'une même transaction pour éviter de multiplier les frais fixes dans l'affichage.
+ *
+ * Stratégie d'affichage du montant total payé :
+ * - Si le premier paiement du groupe possède `montant_membre` en DB (paiement Wave confirmé) :
+ *   on l'utilise directement — c'est le montant exact débité par Wave.
+ * - Sinon (paiement cash / virement / manuel) : on affiche montant (pas de frais)
  */
 function groupTransactions(paiements) {
   const map = new Map();
@@ -39,7 +44,9 @@ function groupTransactions(paiements) {
         statut: p.statut,
         created_at: p.created_at,
         date_paiement: p.date_paiement,
-        montant: 0,
+        montant: 0,              // Montant net total (ce que la caisse reçoit)
+        montant_membre: null,    // Montant total débité au membre (Wave uniquement, depuis DB)
+        frais_gateway: null,     // Frais passerelle (depuis DB)
         transaction_id: p.transaction_id,
         periodes: [],
         preuve_path: p.preuve_path
@@ -47,6 +54,11 @@ function groupTransactions(paiements) {
     }
     const group = map.get(key);
     group.montant += p.montant;
+    // montant_membre est porté par le PREMIER paiement de la série (celui avec transaction_id).
+    if (p.montant_membre != null && group.montant_membre == null) {
+      group.montant_membre = p.montant_membre;
+      group.frais_gateway  = p.frais_gateway;
+    }
     if (p.periode) {
       group.periodes.push(p.periode);
     }
@@ -127,7 +139,9 @@ export default function MesPaiements() {
     });
   }, [id]);
 
-  const total = data.paiements.filter(p=>p.statut==="reussi").reduce((sum,p)=>sum+p.montant, 0);
+  // Total versé = montant réellement déboursé par le membre (montant_membre si Wave, sinon montant)
+  const groupedForTotal = groupTransactions(data.paiements.filter(p => p.statut === "reussi"));
+  const total = groupedForTotal.reduce((sum, g) => sum + (g.montant_membre ?? g.montant), 0);
   const dateGroups = groupByDate(data.paiements);
 
   return (
@@ -202,9 +216,11 @@ export default function MesPaiements() {
                           </div>
                           <div className="flex flex-col items-end">
                             <p className={`shrink-0 text-base font-extrabold ${paiement.statut==="reussi"?"text-emerald-600":"text-wave-500"}`}>
-                              +{fcfa(Math.ceil((paiement.montant * 1.01 + 100) / 0.975)).replace(' FCFA', '')}
+                              +{fcfa(paiement.montant_membre ?? paiement.montant).replace(' FCFA', '')}
                             </p>
-                            <p className="text-[10px] font-semibold text-wave-400 mt-0.5">Dont {fcfa(paiement.montant)} reçu</p>
+                            {paiement.montant_membre != null && paiement.montant_membre !== paiement.montant && (
+                              <p className="text-[10px] font-semibold text-wave-400 mt-0.5">Net reçu : {fcfa(paiement.montant)}</p>
+                            )}
                           </div>
                         </motion.button>
                       );
@@ -240,8 +256,12 @@ export default function MesPaiements() {
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-100 text-brand-600"><Wallet className="h-6 w-6"/></span>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Montant total payé</p>
-                      <p className="text-xl font-extrabold text-wave-900">{fcfa(Math.ceil((selected.montant * 1.01 + 100) / 0.975))}</p>
-                      <p className="text-[10px] font-semibold text-wave-500 mt-1">Le groupe a reçu : {fcfa(selected.montant)}</p>
+                      <p className="text-xl font-extrabold text-wave-900">{fcfa(selected.montant_membre ?? selected.montant)}</p>
+                      {selected.montant_membre != null && selected.montant_membre !== selected.montant ? (
+                        <p className="text-[10px] font-semibold text-wave-500 mt-1">Dont {fcfa(selected.frais_gateway ?? (selected.montant_membre - selected.montant))} de frais Wave · Net reçu : {fcfa(selected.montant)}</p>
+                      ) : (
+                        <p className="text-[10px] font-semibold text-wave-500 mt-1">Le groupe a reçu : {fcfa(selected.montant)}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 items-end">

@@ -34,6 +34,10 @@ class PaiementController extends Controller
         $currentUser = $request->user();
         $membre = $groupe->membres()->where('user_id', $currentUser->id)->first();
         abort_unless($membre, 403);
+        // Les colonnes montant_membre, frais_gateway, commission_plateforme sont incluses automatiquement
+        // dans la réponse JSON grâce au $fillable du modèle Paiement (ajoutées en juin 2026).
+        // Le frontend membre utilise montant_membre (si non-null) pour afficher le montant total débité,
+        // et montant pour afficher le montant net affecté aux cotisations.
         $paiements = Paiement::where('membre_id', $membre->id)->with('periode')->latest('created_at')->get();
         return response()->json(['paiements' => $paiements, 'membre' => $membre->load('adhesion', 'credits')]);
     }
@@ -175,7 +179,7 @@ class PaiementController extends Controller
             $fraisGeniusPay        = (int) round($montantEnvoye * 0.025 + 100);
             $commissionPlateforme  = $montantEnvoye - $fraisGeniusPay - $montant;
 
-            $paiement->montant_membre         = $montant;
+            $paiement->montant_membre         = $montantEnvoye;
             $paiement->frais_gateway          = $fraisGeniusPay;
             $paiement->commission_plateforme  = $commissionPlateforme;
             $paiement->save();
@@ -298,6 +302,18 @@ class PaiementController extends Controller
                 return ['idempotent' => true];
             }
 
+            // ── Capturer les métadonnées de frais AVANT de supprimer le paiement en attente ──
+            // Ces données (montant_membre, frais_gateway) sont enregistrées lors de initierPaiement()
+            // et doivent être propagées vers les paiements confirmés pour que le membre voie
+            // le vrai montant débité dans son historique.
+            $pendingPayment = Paiement::where('transaction_id', $transactionId)
+                ->where('statut', 'en_attente')
+                ->first();
+
+            $montantMembre        = $pendingPayment?->montant_membre;        // Ex: 1346 F (total débité Wave)
+            $fraisGateway         = $pendingPayment?->frais_gateway;          // Ex: 146 F (frais Wave)
+            $commissionPlateforme = $pendingPayment?->commission_plateforme;  // Ex: 12 F (CotisPro)
+
             // Supprimer la transaction temporaire en attente pour la recréer en statut réussi
             Paiement::where('transaction_id', $transactionId)->where('statut', 'en_attente')->delete();
 
@@ -308,7 +324,10 @@ class PaiementController extends Controller
                 'note'           => 'Paiement Genius Pay confirmé automatiquement',
             ];
 
-            $paiements = $this->imputerPaiement($groupe, $membre, $data, $montant, null, $transactionId);
+            $paiements = $this->imputerPaiement(
+                $groupe, $membre, $data, $montant, null, $transactionId,
+                $montantMembre, $fraisGateway, $commissionPlateforme
+            );
 
             return ['paiements' => $paiements];
         });
@@ -377,7 +396,10 @@ class PaiementController extends Controller
         array $data,
         int $montant,
         ?int $userId,
-        ?string $transactionId = null
+        ?string $transactionId = null,
+        ?int $montantMembre = null,        // Montant total débité au membre (net + frais Wave)
+        ?int $fraisGateway = null,          // Frais prélevés par la passerelle (Wave/GeniusPay)
+        ?int $commissionPlateforme = null   // Commission CotisPro
     ): array {
         $paiements = [];
         $reste = $montant;
@@ -398,7 +420,7 @@ class PaiementController extends Controller
             }
             $adhesionFrais->save();
 
-            $paiement = $this->createPaiement($groupe, $membre, null, $data, $reste, $userId);
+            $paiement = $this->createPaiement($groupe, $membre, null, $data, $reste, $userId, $montantMembre, $fraisGateway, $commissionPlateforme);
             if ($transactionId) {
                 $paiement->transaction_id = $transactionId;
                 $paiement->save();
@@ -416,8 +438,17 @@ class PaiementController extends Controller
                 if ($manquant <= 0) continue;
 
                 $aImputer = min($manquant, $reste);
-                $paiement = $this->createPaiement($groupe, $membre, $periode, $data, $aImputer, $userId);
-                if ($transactionId && empty($paiements)) {
+                // Les métadonnées de frais (montant_membre, frais_gateway) sont attachées
+                // UNIQUEMENT au premier paiement de la série (celui qui porte le transaction_id).
+                // Cela représente le montant total débité au membre pour l'ensemble de la transaction.
+                $isFirstPaiement = empty($paiements);
+                $paiement = $this->createPaiement(
+                    $groupe, $membre, $periode, $data, $aImputer, $userId,
+                    $isFirstPaiement ? $montantMembre : null,
+                    $isFirstPaiement ? $fraisGateway  : null,
+                    $isFirstPaiement ? $commissionPlateforme : null
+                );
+                if ($transactionId && $isFirstPaiement) {
                     $paiement->transaction_id = $transactionId;
                     $paiement->save();
                 }
@@ -459,7 +490,17 @@ class PaiementController extends Controller
     /**
      * Crée un paiement + son écriture dans le ledger de caisse.
      */
-    protected function createPaiement(Groupe $groupe, Membre $membre, ?Periode $periode, array $data, int $montant, ?int $userId): Paiement
+    protected function createPaiement(
+        Groupe $groupe,
+        Membre $membre,
+        ?Periode $periode,
+        array $data,
+        int $montant,
+        ?int $userId,
+        ?int $montantMembre = null,        // Montant total débité au membre (Wave uniquement)
+        ?int $fraisGateway = null,          // Frais passerelle Wave
+        ?int $commissionPlateforme = null   // Commission CotisPro
+    ): Paiement
     {
         $paiement = Paiement::create([
             'groupe_id'      => $groupe->id,
@@ -470,6 +511,10 @@ class PaiementController extends Controller
             'mode'           => $data['mode'],
             'statut'         => 'reussi',
             'date_paiement'  => $data['date_paiement'],
+            // Champs financiers — renseignés uniquement pour les paiements Wave (non NULL)
+            'montant_membre'        => $montantMembre,
+            'frais_gateway'         => $fraisGateway,
+            'commission_plateforme' => $commissionPlateforme,
             'note'           => $data['note'] ?? null,
             'preuve_path'    => $data['preuve_path'] ?? null,
             'enregistre_par' => $userId,
