@@ -80,8 +80,14 @@ export default function CaissePage() {
   const memberEntries = filteredLedger.filter(l => l.type === "entree" && l.paiement?.membre?.id === parseInt(selectedMemberId));
   const totalVerse = memberEntries.reduce((acc, l) => acc + l.montant, 0);
   const totalVersements = memberEntries.length;
-  const sortedMemberEntries = [...memberEntries].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
-  const dernierVersement = sortedMemberEntries.length > 0 ? (sortedMemberEntries[0].created_at || sortedMemberEntries[0].date) : null;
+  const sortedMemberEntries = [...memberEntries].sort((a, b) => {
+    const dateA = new Date(a.paiement?.date_paiement || a.paiement?.created_at || a.created_at || a.date);
+    const dateB = new Date(b.paiement?.date_paiement || b.paiement?.created_at || b.created_at || b.date);
+    return dateB - dateA;
+  });
+  const dernierVersement = sortedMemberEntries.length > 0 
+    ? (sortedMemberEntries[0].paiement?.date_paiement || sortedMemberEntries[0].paiement?.created_at || sortedMemberEntries[0].created_at || sortedMemberEntries[0].date) 
+    : null;
 
   return (
     <AppShell title="Caisse" groupeId={id} back>
