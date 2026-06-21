@@ -435,7 +435,7 @@ class PaiementController extends Controller
                 ]);
 
                 // L'argent est bien reçu → entrée caisse (sans paiement associé)
-                $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
+                $caisse = Caisse::firstOrCreate(['groupe_id' => $groupe->id], ['solde' => 0]);
                 CaisseLedger::create([
                     'caisse_id'  => $caisse->id,
                     'groupe_id'  => $groupe->id,
@@ -476,7 +476,7 @@ class PaiementController extends Controller
         ]);
 
         // Ledger entry
-        $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
+        $caisse = Caisse::firstOrCreate(['groupe_id' => $groupe->id], ['solde' => 0]);
         CaisseLedger::create([
             'caisse_id'   => $caisse->id,
             'groupe_id'   => $groupe->id,

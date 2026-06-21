@@ -22,10 +22,44 @@ const STATUT_LABEL = {
 };
 
 /**
+ * Regroupe les sous-paiements d'une même transaction pour éviter de multiplier les frais fixes dans l'affichage.
+ */
+function groupTransactions(paiements) {
+  const map = new Map();
+  for (const p of paiements) {
+    const d = new Date(p.created_at || p.date_paiement);
+    const timeKey = d.toISOString();
+    const key = p.transaction_id || `${timeKey}_${p.mode}_${p.type}`;
+    
+    if (!map.has(key)) {
+      map.set(key, {
+        id: p.id,
+        type: p.type,
+        mode: p.mode,
+        statut: p.statut,
+        created_at: p.created_at,
+        date_paiement: p.date_paiement,
+        montant: 0,
+        transaction_id: p.transaction_id,
+        periodes: [],
+        preuve_path: p.preuve_path
+      });
+    }
+    const group = map.get(key);
+    group.montant += p.montant;
+    if (p.periode) {
+      group.periodes.push(p.periode);
+    }
+  }
+  return Array.from(map.values());
+}
+
+/**
  * Regroupe les paiements par date (style Wave) en utilisant created_at pour le tri.
  */
 function groupByDate(paiements) {
-  const sorted = [...paiements].sort((a, b) => {
+  const groupedPaiements = groupTransactions(paiements);
+  const sorted = [...groupedPaiements].sort((a, b) => {
     const da = new Date(a.created_at || a.date_paiement);
     const db = new Date(b.created_at || b.date_paiement);
     return db - da; // Plus récent en premier
@@ -158,9 +192,9 @@ export default function MesPaiements() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-extrabold text-wave-900 capitalize">{paiement.type}</p>
-                              {paiement.periode && (
+                              {paiement.periodes && paiement.periodes.length > 0 && (
                                 <p className="text-[10px] font-medium text-brand-600 mt-0.5">
-                                  Période : {new Date(paiement.periode.date_debut).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })} - {new Date(paiement.periode.date_fin).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })}
+                                  {paiement.periodes.length} période{paiement.periodes.length > 1 ? "s" : ""} couverte{paiement.periodes.length > 1 ? "s" : ""}
                                 </p>
                               )}
                               <p className="text-[11px] font-medium text-wave-400 mt-0.5">{heureStr} · {paiement.mode}</p>
@@ -248,9 +282,9 @@ export default function MesPaiements() {
                     <p className="text-sm font-bold capitalize text-wave-800 mt-1">
                       {selected.type}
                     </p>
-                    {selected.periode && (
+                    {selected.periodes && selected.periodes.length > 0 && (
                       <p className="text-[10px] font-medium text-brand-600 mt-0.5">
-                        {new Date(selected.periode.date_debut).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })} - {new Date(selected.periode.date_fin).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })}
+                        {selected.periodes.length} période{selected.periodes.length > 1 ? "s" : ""} couverte{selected.periodes.length > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
