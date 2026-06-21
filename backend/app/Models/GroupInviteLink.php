@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class GroupInviteLink extends Model
 {
-    protected $guarded = [];
+    protected $fillable = [
+        'groupe_id', 'token', 'active', 'expires_at', 'max_uses', 'uses_count',
+        'created_by', 'target_name', 'target_prenom', 'montant_perso',
+    ];
 
     protected $casts = [
         'expires_at' => 'datetime',

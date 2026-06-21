@@ -8,7 +8,7 @@ class CaisseLedger extends Model
 {
     protected $fillable = [
         'caisse_id', 'groupe_id', 'type', 'montant',
-        'motif', 'date', 'paiement_id', 'auteur_id',
+        'motif', 'beneficiaire', 'date', 'paiement_id', 'auteur_id',
     ];
     protected $casts = ['date' => 'date'];
     public function caisse() { return $this->belongsTo(Caisse::class); }

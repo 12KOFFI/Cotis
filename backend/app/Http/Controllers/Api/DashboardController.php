@@ -33,10 +33,19 @@ class DashboardController extends Controller
         $impaye = 0;
 
         if ($periode) {
+            // Pré-charger TOUS les paiements réussis de la période en une seule requête
+            // puis grouper par membre_id → élimine le N+1 (1 requête au lieu de N)
+            $paiementsParMembre = Paiement::where('groupe_id', $groupe->id)
+                ->where('periode_id', $periode->id)
+                ->where('type', 'cotisation')
+                ->where('statut', 'reussi')
+                ->get()
+                ->groupBy('membre_id');
+
             foreach ($membresActifs as $membre) {
                 $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
                 $totalAttendu += $montantDu;
-                $montantVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)->sum('montant');
+                $montantVerse = (int) ($paiementsParMembre[$membre->id] ?? collect())->sum('montant');
                 $totalRecu += min($montantVerse, $montantDu);
 
                 $statut = $membre->computeStatutCotisation($groupe);

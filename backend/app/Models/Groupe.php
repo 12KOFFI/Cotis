@@ -12,6 +12,7 @@ class Groupe extends Model
         'frequence', 'montant_standard', 'montant_personnalisable',
         'date_debut', 'dates_autres',
         'adhesion_active', 'adhesion_montant',
+        'devise', 'wave_numero', 'wave_pays',
     ];
     protected $casts = [
         'adhesion_active' => 'boolean',
@@ -32,6 +33,8 @@ class Groupe extends Model
     public function ensurePeriodsUpToDate(): void
     {
         $now = now()->startOfDay();
+        // Calculer le nombre de membres UNE SEULE FOIS (évite N+1 dans les boucles)
+        $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
 
         if ($this->frequence === 'autre') {
             $customDates = collect($this->dates_autres ?? [])
@@ -44,7 +47,6 @@ class Groupe extends Model
             foreach ($customDates as $date) {
                 $exists = $this->periodes()->where('date_fin', $date->toDateString())->exists();
                 if (!$exists && $start->lte($now)) {
-                    $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
                     Periode::create([
                         'groupe_id' => $this->id,
                         'date_debut' => $start,
@@ -67,25 +69,26 @@ class Groupe extends Model
 
         if ($start->gt($now)) return;
 
-        while ($start->lte($now)) {
-            $end = match ($this->frequence) {
-                'hebdomadaire' => $start->copy()->addWeek()->subDay(),
-                'mensuelle' => $start->copy()->addMonth()->subDay(),
-                'trimestrielle' => $start->copy()->addMonths(3)->subDay(),
-                'annuelle' => $start->copy()->addYear()->subDay(),
-                default => $start->copy()->addMonth()->subDay(),
-            };
-            $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
-            $periode = Periode::create([
-                'groupe_id' => $this->id,
-                'date_debut' => $start,
-                'date_fin' => $end,
-                'echeance' => $end,
-                'montant_attendu' => $this->montant_standard * $nbMembres,
-            ]);
-            $this->consumeCreditsForPeriod($periode);
-            $start = $end->copy()->addDay();
-        }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($start, $now, $nbMembres) {
+            while ($start->lte($now)) {
+                $end = match ($this->frequence) {
+                    'hebdomadaire' => $start->copy()->addWeek()->subDay(),
+                    'mensuelle' => $start->copy()->addMonth()->subDay(),
+                    'trimestrielle' => $start->copy()->addMonths(3)->subDay(),
+                    'annuelle' => $start->copy()->addYear()->subDay(),
+                    default => $start->copy()->addMonth()->subDay(),
+                };
+                $periode = Periode::create([
+                    'groupe_id' => $this->id,
+                    'date_debut' => $start,
+                    'date_fin' => $end,
+                    'echeance' => $end,
+                    'montant_attendu' => $this->montant_standard * $nbMembres,
+                ]);
+                $this->consumeCreditsForPeriod($periode);
+                $start = $end->copy()->addDay();
+            }
+        });
     }
 
     public function consumeCreditsForPeriod(Periode $periode): void

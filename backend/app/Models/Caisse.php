@@ -36,12 +36,18 @@ class Caisse extends Model
      */
     public function getSoldeDisponibleAttribute(): int
     {
-        return (int) CaisseLedger::where('caisse_id', $this->id)
+        $waveEntrees = (int) CaisseLedger::where('caisse_id', $this->id)
             ->where('type', 'entree')
             ->whereHas('paiement', function ($q) {
                 $q->where('mode', 'wave');
             })
             ->sum('montant');
+
+        $sorties = (int) CaisseLedger::where('caisse_id', $this->id)
+            ->where('type', 'sortie')
+            ->sum('montant');
+
+        return max(0, $waveEntrees - $sorties);
     }
 
     /**
@@ -60,7 +66,7 @@ class Caisse extends Model
         $entrees = (int) $row->total_entrees;
         $sorties = (int) $row->total_sorties;
 
-        // Solde retirable = entrées Wave uniquement
+        // Solde retirable = entrées Wave - TOUTES les sorties
         $waveEntrees = (int) CaisseLedger::where('caisse_id', $this->id)
             ->where('type', 'entree')
             ->whereHas('paiement', function ($q) {
@@ -72,7 +78,7 @@ class Caisse extends Model
             'total_entrees'    => $entrees,
             'total_sorties'    => $sorties,
             'solde_total'      => $entrees - $sorties,
-            'solde_disponible' => $waveEntrees, // retirable via Wave
+            'solde_disponible' => max(0, $waveEntrees - $sorties),
         ];
     }
 }
