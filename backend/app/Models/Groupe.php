@@ -76,14 +76,73 @@ class Groupe extends Model
                 default => $start->copy()->addMonth()->subDay(),
             };
             $nbMembres = max(1, $this->membres()->whereIn('statut', ['actif', 'actif_non_verifie'])->count());
-            Periode::create([
+            $periode = Periode::create([
                 'groupe_id' => $this->id,
                 'date_debut' => $start,
                 'date_fin' => $end,
                 'echeance' => $end,
                 'montant_attendu' => $this->montant_standard * $nbMembres,
             ]);
+            $this->consumeCreditsForPeriod($periode);
             $start = $end->copy()->addDay();
+        }
+    }
+
+    public function consumeCreditsForPeriod(Periode $periode): void
+    {
+        $membresActifs = $this->membres()
+            ->whereIn('statut', ['actif', 'actif_non_verifie'])
+            ->get();
+
+        foreach ($membresActifs as $membre) {
+            $credits = CreditMembre::where('groupe_id', $this->id)
+                ->where('membre_id', $membre->id)
+                ->where('montant', '>', 0)
+                ->whereNull('periode_appliquee_id')
+                ->orderBy('created_at')
+                ->get();
+
+            if ($credits->isEmpty()) continue;
+
+            $montantDu = $membre->montant_perso ?? $this->montant_standard;
+            $montantDejaVerse = (int) Paiement::cotisationReussie($membre->id, $periode->id)
+                ->sum('montant');
+            $manquant = max(0, $montantDu - $montantDejaVerse);
+
+            if ($manquant <= 0) continue;
+
+            $resteACombler = $manquant;
+            foreach ($credits as $credit) {
+                if ($resteACombler <= 0) break;
+
+                $aUtiliser = min($credit->montant, $resteACombler);
+
+                // Créer le paiement automatique
+                $paiement = Paiement::create([
+                    'groupe_id'      => $this->id,
+                    'membre_id'      => $membre->id,
+                    'periode_id'     => $periode->id,
+                    'type'           => 'cotisation',
+                    'montant'        => $aUtiliser,
+                    'mode'           => 'credit',
+                    'statut'         => 'reussi',
+                    'date_paiement'  => now()->toDateString(),
+                    'note'           => 'Auto-imputé depuis crédit reporté',
+                ]);
+
+                // Mettre à jour le crédit
+                $credit->montant -= $aUtiliser;
+                $credit->periode_appliquee_id = $periode->id;
+                $credit->save();
+
+                $resteACombler -= $aUtiliser;
+            }
+
+            // Supprimer les crédits épuisés
+            CreditMembre::where('groupe_id', $this->id)
+                ->where('membre_id', $membre->id)
+                ->where('montant', '<=', 0)
+                ->delete();
         }
     }
 }

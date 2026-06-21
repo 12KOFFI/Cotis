@@ -251,7 +251,7 @@ class PaiementController extends Controller
         $data = $request->validate([
             'membre_id'      => 'required|exists:membres,id',
             'type'           => 'required|in:cotisation,adhesion,autre',
-            'montant'        => 'required|integer|min:1',
+            'montant'        => 'required|integer|min:1|max:2000000',
             'mode'           => 'required|in:cash,wave,virement,autre',
             'date_paiement'  => 'required|date',
             'note'           => 'nullable|string',
@@ -433,12 +433,18 @@ class PaiementController extends Controller
                     'montant'           => $reste,
                     'periode_source_id' => optional($periodes->last())->id,
                 ]);
-                $paiement = $this->createPaiement($groupe, $membre, null, array_merge($data, ['type' => 'autre']), $reste, $userId);
-                if ($transactionId && empty($paiements)) {
-                    $paiement->transaction_id = $transactionId;
-                    $paiement->save();
-                }
-                $paiements[] = $paiement;
+
+                // L'argent est bien reçu → entrée caisse (sans paiement associé)
+                $caisse = $groupe->caisse ?? Caisse::create(['groupe_id' => $groupe->id, 'solde' => 0]);
+                CaisseLedger::create([
+                    'caisse_id'  => $caisse->id,
+                    'groupe_id'  => $groupe->id,
+                    'type'       => 'entree',
+                    'montant'    => $reste,
+                    'motif'      => 'Crédit reporté - ' . trim(($membre->prenom ?? '') . ' ' . $membre->nom),
+                    'date'       => $data['date_paiement'] ?? now()->toDateString(),
+                    'auteur_id'  => $userId,
+                ]);
             }
 
             if ($membre->statut === 'actif_non_verifie') {

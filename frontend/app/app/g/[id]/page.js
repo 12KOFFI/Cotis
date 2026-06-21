@@ -352,20 +352,27 @@ export default function GestionnaireDashboard() {
                             </div>
                             <div>
                               <p className="text-sm font-bold text-wave-900">{tx.membre?.prenom} {tx.membre?.nom}</p>
-                              <p className="text-[11px] font-medium text-wave-500 capitalize flex items-center gap-2 flex-wrap">
-                                <span>{heureStr} • {tx.mode}</span>
-                                {tx.statut !== "reussi" && (
-                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                    tx.statut === "en_attente" 
-                                      ? "bg-amber-50 text-amber-600 border border-amber-100" 
-                                      : tx.statut === "echoue" 
-                                      ? "bg-rose-50 text-rose-600 border border-rose-100"
-                                      : "bg-slate-100 text-slate-600 border border-slate-200"
-                                  }`}>
-                                    {cfg.label}
-                                  </span>
+                              <div className="flex flex-col gap-0.5 mt-0.5">
+                                <p className="text-[11px] font-medium text-wave-500 capitalize flex items-center gap-2 flex-wrap">
+                                  <span>{heureStr} • {tx.mode}</span>
+                                  {tx.statut !== "reussi" && (
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                      tx.statut === "en_attente" 
+                                        ? "bg-amber-50 text-amber-600 border border-amber-100" 
+                                        : tx.statut === "echoue" 
+                                        ? "bg-rose-50 text-rose-600 border border-rose-100"
+                                        : "bg-slate-100 text-slate-600 border border-slate-200"
+                                    }`}>
+                                      {cfg.label}
+                                    </span>
+                                  )}
+                                </p>
+                                {tx.periode && (
+                                  <p className="text-[10px] font-medium text-brand-600">
+                                    Période : {new Date(tx.periode.date_debut).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })} - {new Date(tx.periode.date_fin).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })}
+                                  </p>
                                 )}
-                              </p>
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -412,6 +419,7 @@ export default function GestionnaireDashboard() {
       {payOpen && (
         <EnregistrerPaiementModal
           groupeId={id}
+          groupe={groupe}
           onClose={() => {
             setPayOpen(false);
             loadDashboard();
@@ -446,7 +454,7 @@ export default function GestionnaireDashboard() {
   );
 }
 
-function EnregistrerPaiementModal({ groupeId, onClose }) {
+function EnregistrerPaiementModal({ groupeId, groupe, onClose }) {
   const [membres, setMembres] = useState([]);
   const [f, setF] = useState({
     membre_id: "",
@@ -729,6 +737,29 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                         })
                       }
                     />
+                    {(() => {
+                      const selectedMembre = membres.find((m) => m.id === parseInt(f.membre_id));
+                      const montantDu = selectedMembre?.montant_perso || groupe?.montant_standard || 0;
+                      
+                      if (f.type === "cotisation" && montantDu > 0) {
+                        return (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {[1, 2, 3, 5].map(n => (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => setF({...f, montant: montantDu * n})}
+                                className="text-[10px] font-bold bg-wave-100 text-wave-700 
+                                           px-2.5 py-1 rounded-lg hover:bg-wave-200 transition"
+                              >
+                                {n} période{n > 1 ? 's' : ''}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div>
                     <label className="label">Date</label>
@@ -808,6 +839,33 @@ function EnregistrerPaiementModal({ groupeId, onClose }) {
                 )}
               </div>
             )}
+
+            {(() => {
+              const selectedMembre = membres.find((m) => m.id === parseInt(f.membre_id));
+              const montantDu = selectedMembre?.montant_perso || groupe?.montant_standard || 0;
+              let periodsCovered = 0;
+              let remainingAmount = 0;
+              if (montantDu > 0 && f.montant > 0 && f.type === "cotisation") {
+                periodsCovered = Math.floor(f.montant / montantDu);
+                remainingAmount = f.montant % montantDu;
+              }
+
+              return (
+                <>
+                  {f.type === "cotisation" && f.montant > 0 && montantDu > 0 && periodsCovered > 0 && (
+                    <div className="rounded-xl bg-brand-50 border border-brand-100 p-3">
+                      <p className="text-xs text-brand-800">
+                        <span className="font-bold">Résumé :</span>{' '}
+                        {periodsCovered} versement{periodsCovered > 1 ? 's' : ''} de {fcfa(montantDu).replace(' FCFA', '')} F
+                        {remainingAmount > 0
+                          ? ` + ${fcfa(remainingAmount).replace(' FCFA', '')} F en crédit (sera imputé automatiquement sur la prochaine période).`
+                          : '.'}
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {err && (
               <motion.p

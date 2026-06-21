@@ -157,7 +157,12 @@ export default function MesPaiements() {
                               <statutIcon.Icon className="h-5 w-5"/>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-extrabold text-wave-900 capitalize">{paiement.type}{paiement.periode ? ` · ${fmtDate(paiement.periode.date_debut)}` : ""}</p>
+                              <p className="truncate text-sm font-extrabold text-wave-900 capitalize">{paiement.type}</p>
+                              {paiement.periode && (
+                                <p className="text-[10px] font-medium text-brand-600 mt-0.5">
+                                  Période : {new Date(paiement.periode.date_debut).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })} - {new Date(paiement.periode.date_fin).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })}
+                                </p>
+                              )}
                               <p className="text-[11px] font-medium text-wave-400 mt-0.5">{heureStr} · {paiement.mode}</p>
                             </div>
                           </div>
@@ -240,7 +245,14 @@ export default function MesPaiements() {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-wave-400">Type</p>
-                    <p className="text-sm font-bold capitalize text-wave-800 mt-1">{selected.type}</p>
+                    <p className="text-sm font-bold capitalize text-wave-800 mt-1">
+                      {selected.type}
+                    </p>
+                    {selected.periode && (
+                      <p className="text-[10px] font-medium text-brand-600 mt-0.5">
+                        {new Date(selected.periode.date_debut).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })} - {new Date(selected.periode.date_fin).toLocaleDateString("fr-FR", { day: '2-digit', month: 'short' })}
+                      </p>
+                    )}
                   </div>
                   <Tag className="h-5 w-5 text-wave-400" />
                 </div>
