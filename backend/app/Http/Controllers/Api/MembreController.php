@@ -16,8 +16,16 @@ class MembreController extends Controller
     public function index(Request $request, Groupe $groupe)
     {
         $this->authorizeGroupe($request, $groupe);
-        $membres = $groupe->membres()->with('adhesion')->get()->map(function ($membre) use ($groupe) {
-            $membre->statut_cotisation = $membre->computeStatutCotisation($groupe);
+
+        $paiementsGroupes = \App\Models\Paiement::where('groupe_id', $groupe->id)
+            ->where('type', 'cotisation')
+            ->where('statut', 'reussi')
+            ->get()
+            ->groupBy('membre_id');
+
+        $membres = $groupe->membres()->with('adhesion')->get()->map(function ($membre) use ($groupe, $paiementsGroupes) {
+            $preloadedPaiements = $paiementsGroupes->get($membre->id, collect());
+            $membre->statut_cotisation = $membre->computeStatutCotisation($groupe, null, $preloadedPaiements);
             return $membre;
         });
         return response()->json(['membres' => $membres]);

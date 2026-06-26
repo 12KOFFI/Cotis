@@ -32,31 +32,32 @@ class DashboardController extends Controller
         $enRetard = 0;
         $impaye = 0;
 
-        if ($periode) {
-            // Pré-charger TOUS les paiements réussis de la période en une seule requête
-            // puis grouper par membre_id → élimine le N+1 (1 requête au lieu de N)
-            $paiementsParMembre = Paiement::where('groupe_id', $groupe->id)
-                ->where('periode_id', $periode->id)
-                ->where('type', 'cotisation')
-                ->where('statut', 'reussi')
-                ->get()
-                ->groupBy('membre_id');
+        // Pré-charger TOUS les paiements réussis de toutes les périodes en une seule requête
+        $paiementsGroupes = Paiement::where('groupe_id', $groupe->id)
+            ->where('type', 'cotisation')
+            ->where('statut', 'reussi')
+            ->get()
+            ->groupBy('membre_id');
 
-            foreach ($membresActifs as $membre) {
-                $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
-                $totalAttendu += $montantDu;
-                $montantVerse = (int) ($paiementsParMembre[$membre->id] ?? collect())->sum('montant');
-                $totalRecu += min($montantVerse, $montantDu);
-
-                $statut = $membre->computeStatutCotisation($groupe);
-                match ($statut) {
-                    'a_jour'     => $aJour++,
-                    'en_attente' => $enAttente++,
-                    'en_retard'  => $enRetard++,
-                    'impaye'     => $impaye++,
-                    default      => null,
-                };
+        foreach ($membresActifs as $membre) {
+            $montantDu = $membre->montant_perso ?? $groupe->montant_standard;
+            $totalAttendu += $montantDu;
+            
+            $preloadedPaiements = $paiementsGroupes->get($membre->id, collect());
+            
+            if ($periode) {
+                $montantVersePeriode = (int) $preloadedPaiements->where('periode_id', $periode->id)->sum('montant');
+                $totalRecu += min($montantVersePeriode, $montantDu);
             }
+
+            $statut = $membre->computeStatutCotisation($groupe, null, $preloadedPaiements);
+            match ($statut) {
+                'a_jour'     => $aJour++,
+                'en_attente' => $enAttente++,
+                'en_retard'  => $enRetard++,
+                'impaye'     => $impaye++,
+                default      => null,
+            };
         }
 
         $tauxCollecte = $totalAttendu > 0 ? round(($totalRecu / $totalAttendu) * 100, 1) : 0;
@@ -113,15 +114,21 @@ class DashboardController extends Controller
         $reste = 0;
 
         $periodes = $groupe->periodes()->orderBy('date_debut')->get();
+        $paiementsMembre = Paiement::where('membre_id', $membre->id)
+            ->where('groupe_id', $groupe->id)
+            ->where('type', 'cotisation')
+            ->where('statut', 'reussi')
+            ->get();
+
         foreach ($periodes as $p) {
             $totalDu += $montantDu;
-            $montantVerse = (int) Paiement::cotisationReussie($membre->id, $p->id)->sum('montant');
+            $montantVerse = (int) $paiementsMembre->where('periode_id', $p->id)->sum('montant');
             $totalVerse += min($montantVerse, $montantDu);
             $reste += max(0, $montantDu - $montantVerse);
         }
 
         // Utilise la méthode centralisée du modèle Membre
-        $statut = $membre->computeStatutCotisation($groupe);
+        $statut = $membre->computeStatutCotisation($groupe, null, $paiementsMembre);
 
         return response()->json([
             'membre'                   => $membre,

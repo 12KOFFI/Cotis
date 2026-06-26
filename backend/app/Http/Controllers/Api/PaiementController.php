@@ -326,16 +326,23 @@ class PaiementController extends Controller
             // Ces données (montant_membre, frais_gateway) sont enregistrées lors de initierPaiement()
             // et doivent être propagées vers les paiements confirmés pour que le membre voie
             // le vrai montant débité dans son historique.
+            // Utilisation de lockForUpdate() pour empêcher les conditions de course (doublons de webhooks)
             $pendingPayment = Paiement::where('transaction_id', $transactionId)
                 ->where('statut', 'en_attente')
+                ->lockForUpdate()
                 ->first();
 
-            $montantMembre        = $pendingPayment?->montant_membre;        // Ex: 1346 F (total débité Wave)
-            $fraisGateway         = $pendingPayment?->frais_gateway;          // Ex: 146 F (frais Wave)
-            $commissionPlateforme = $pendingPayment?->commission_plateforme;  // Ex: 12 F (CotisPro)
+            if (!$pendingPayment) {
+                // Si la transaction a déjà été traitée par une autre requête concurrente, on l'ignore (idempotence)
+                return ['idempotent' => true];
+            }
+
+            $montantMembre        = $pendingPayment->montant_membre;        // Ex: 1346 F (total débité Wave)
+            $fraisGateway         = $pendingPayment->frais_gateway;          // Ex: 146 F (frais Wave)
+            $commissionPlateforme = $pendingPayment->commission_plateforme;  // Ex: 12 F (CotisPro)
 
             // Supprimer la transaction temporaire en attente pour la recréer en statut réussi
-            Paiement::where('transaction_id', $transactionId)->where('statut', 'en_attente')->delete();
+            $pendingPayment->delete();
 
             $data = [
                 'type'           => $type,

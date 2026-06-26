@@ -8,18 +8,22 @@ import { XCircle } from 'lucide-react';
 export default function PaiementErreur() {
   const router = useRouter();
   const [countdown, setCountdown] = useState(8);
+  const [redirectUrl, setRedirectUrl] = useState('/app');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // Récupérer le dernier groupe visité pour rediriger vers l'espace membre
-    const lastGroupeId = typeof window !== 'undefined' ? localStorage.getItem('cp_last_groupe') : null;
-    const redirectUrl = lastGroupeId ? `/app/m/${lastGroupeId}` : '/app';
+    const lastGroupeId = localStorage.getItem('cp_last_groupe');
+    const url = lastGroupeId ? `/app/m/${lastGroupeId}` : '/app';
+    setRedirectUrl(url);
+    setMounted(true);
 
     // Redirection automatique après le compte à rebours
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          router.push(redirectUrl);
+          router.push(url);
           return 0;
         }
         return prev - 1;
@@ -29,8 +33,7 @@ export default function PaiementErreur() {
     return () => clearInterval(interval);
   }, [router]);
 
-  const lastGroupeId = typeof window !== 'undefined' ? localStorage.getItem('cp_last_groupe') : null;
-  const redirectUrl = lastGroupeId ? `/app/m/${lastGroupeId}` : '/app';
+  if (!mounted) return null; // Évite l'erreur d'hydratation
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 font-sans px-4">

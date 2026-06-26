@@ -22,21 +22,28 @@ export default function MemberDashboard() {
   const [error, setError] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  async function loadDashboard() {
-    try {
-      setError(null);
-      const response = await api.get(`/groupes/${id}/mon-dashboard`);
-      setData(response.data);
-    } catch (err) {
-      setError("Impossible de charger vos données. Veuillez réessayer.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
     if (!id || id === 'undefined') return;
-    loadDashboard(); /* eslint-disable-next-line */
+
+    const abortController = new AbortController();
+
+    async function loadDashboard() {
+      try {
+        setError(null);
+        const response = await api.get(`/groupes/${id}/mon-dashboard`, {
+          signal: abortController.signal
+        });
+        setData(response.data);
+        setLoading(false);
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
+        setError("Impossible de charger vos données. Veuillez réessayer.");
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
+    return () => abortController.abort();
   }, [id]);
 
   if (loading) return (
@@ -198,25 +205,28 @@ function ConfirmPayModal({ groupeId, groupe, montant, adhesion, onClose }) {
   const [error, setError] = useState("");
 
   const handleReceivedChange = (val) => {
-    const received = parseInt(val);
-    if (!isNaN(received)) {
-      setAmountReceived(received);
-      setAmountSent(calcEnvoye(received));
-    } else {
+    if (val === "") {
       setAmountReceived("");
       setAmountSent("");
+      return;
+    }
+    const received = parseInt(val, 10);
+    if (!isNaN(received) && received >= 0) {
+      setAmountReceived(received);
+      setAmountSent(calcEnvoye(received));
     }
   };
 
   const handleSentChange = (val) => {
-    const sent = parseInt(val);
-    if (!isNaN(sent)) {
-      setAmountSent(sent);
-      const received = Math.max(0, calcRecoit(sent));
-      setAmountReceived(received);
-    } else {
+    if (val === "") {
       setAmountSent("");
       setAmountReceived("");
+      return;
+    }
+    const sent = parseInt(val, 10);
+    if (!isNaN(sent) && sent >= 0) {
+      setAmountSent(sent);
+      setAmountReceived(Math.max(0, calcRecoit(sent)));
     }
   };
 

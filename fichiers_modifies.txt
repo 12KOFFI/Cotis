@@ -79,5 +79,43 @@ frontend/app/app/m/[id]/paiements/page.js
   → groupTransactions() réécrit pour ne pas dupliquer les frais
 
 ═══════════════════════════════════════════════════════════════════
- TOTAL : 18 fichiers modifiés (dont 2 nouveaux)
+ 4. HOTFIX — Régressions détectées et corrigées
 ═══════════════════════════════════════════════════════════════════
+
+backend/app/Models/Invitation.php
+  → RÉGRESSION : champ 'canal' manquant dans $fillable
+    (les invitations perdaient silencieusement leur type de canal)
+
+backend/config/cors.php
+  → RÉGRESSION : pattern CORS trop restrictif (cotis* → *cotis*)
+    (bloquait les requêtes si l'URL Vercel ne commençait pas par "cotis")
+
+backend/app/Http/Controllers/Api/PaiementController.php
+  → RÉGRESSION : montant minimum utilisait montant_standard au lieu de montant_perso
+    (bloquait les paiements des membres à cotisation personnalisée)
+
+═══════════════════════════════════════════════════════════════════
+ TOTAL : 18 fichiers modifiés (dont 2 nouveaux) + 3 hotfixes
+═══════════════════════════════════════════════════════════════════
+
+
+═══════════════════════════════════════════════════════════════════
+ 5. SQL À EXÉCUTER EN PRODUCTION (phpMyAdmin)
+═══════════════════════════════════════════════════════════════════
+
+⚠️  Ce ne sont PAS des nouvelles colonnes.
+    Ce sont des INDEX de performance sur des colonnes EXISTANTES.
+    Aucune donnée n'est modifiée, aucun risque de perte.
+    Cela accélère les requêtes du dashboard et des calculs de solde.
+
+--- Copier/coller ce bloc dans phpMyAdmin → Onglet SQL → Exécuter ---
+
+-- Index sur la table caisse_ledgers (accélère les calculs de solde caisse)
+ALTER TABLE `caisse_ledgers` ADD INDEX `idx_ledger_caisse` (`caisse_id`);
+ALTER TABLE `caisse_ledgers` ADD INDEX `idx_ledger_groupe_type` (`groupe_id`, `type`);
+
+-- Index sur la table paiements (accélère le dashboard et les statuts membres)
+ALTER TABLE `paiements` ADD INDEX `idx_paiements_cotisation_lookup` (`membre_id`, `periode_id`, `type`, `statut`);
+ALTER TABLE `paiements` ADD INDEX `idx_paiements_statut` (`statut`);
+
+--- Fin du SQL ---

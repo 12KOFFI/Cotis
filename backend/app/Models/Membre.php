@@ -56,19 +56,23 @@ class Membre extends Model
      * ou le statut global sur toutes les périodes si aucune n'est spécifiée.
      * Logique centralisée — appelée par MembreController & DashboardController.
      */
-    public function computeStatutCotisation(Groupe $groupe, ?Periode $periode = null): string
+    public function computeStatutCotisation(Groupe $groupe, ?Periode $periode = null, $preloadedPaiements = null): string
     {
         if ($periode) {
-            return $this->computeStatutForPeriode($groupe, $periode);
+            return $this->computeStatutForPeriode($groupe, $periode, $preloadedPaiements);
         }
 
-        return $this->computeStatutGlobal($groupe);
+        return $this->computeStatutGlobal($groupe, $preloadedPaiements);
     }
 
-    private function computeStatutForPeriode(Groupe $groupe, Periode $periode): string
+    private function computeStatutForPeriode(Groupe $groupe, Periode $periode, $preloadedPaiements = null): string
     {
         $montantDu = $this->montant_perso ?? $groupe->montant_standard;
-        $montantVerse = (int) Paiement::cotisationReussie($this->id, $periode->id)->sum('montant');
+        if ($preloadedPaiements !== null) {
+            $montantVerse = (int) $preloadedPaiements->where('periode_id', $periode->id)->sum('montant');
+        } else {
+            $montantVerse = (int) Paiement::cotisationReussie($this->id, $periode->id)->sum('montant');
+        }
         $echeanceDepassee = now()->gt($periode->echeance);
 
         // Totalité payée
@@ -88,7 +92,7 @@ class Membre extends Model
         return $echeanceDepassee ? 'impaye' : 'en_attente';
     }
 
-    private function computeStatutGlobal(Groupe $groupe): string
+    private function computeStatutGlobal(Groupe $groupe, $preloadedPaiements = null): string
     {
         $periodes = $groupe->periodes()->orderBy('date_debut')->get();
         if ($periodes->isEmpty()) return 'a_jour';
@@ -99,7 +103,7 @@ class Membre extends Model
 
         $montantDu = $this->montant_perso ?? $groupe->montant_standard;
 
-        $paiements = Paiement::where('membre_id', $this->id)
+        $paiements = $preloadedPaiements !== null ? $preloadedPaiements : Paiement::where('membre_id', $this->id)
             ->where('groupe_id', $groupe->id)
             ->where('type', 'cotisation')
             ->where('statut', 'reussi')
