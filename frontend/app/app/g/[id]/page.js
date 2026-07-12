@@ -668,17 +668,6 @@ function EnregistrerPaiementModal({ groupeId, groupe, onClose }) {
                   </div>
                 </label>
 
-                {/* Option: Autre */}
-                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${f.mode === 'autre' ? 'border-wave-600 bg-wave-50 ring-1 ring-wave-600' : 'border-wave-100 hover:bg-wave-50/50'}`}>
-                  <input type="radio" name="mode" value="autre" checked={f.mode === 'autre'} onChange={(e) => setF({ ...f, mode: e.target.value })} className="hidden" />
-                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg mt-0.5 ${f.mode === 'autre' ? 'bg-wave-600 text-white' : 'bg-wave-100 text-wave-600'}`}>
-                    <PlusCircle className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className={`text-sm font-bold leading-none mb-1.5 ${f.mode === 'autre' ? 'text-wave-900' : 'text-wave-700'}`}>Autre (Virement...)</p>
-                    <p className="text-[10px] font-medium text-wave-500 leading-tight">Orange Money, MTN, Virement, etc.</p>
-                  </div>
-                </label>
               </div>
             </div>
 
