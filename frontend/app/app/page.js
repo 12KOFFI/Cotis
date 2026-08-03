@@ -129,10 +129,7 @@ export default function AppHome() {
                       </div>
                     </div>
                     
-                    <div className="relative z-10 mb-4">
-                      <p className={`text-sm ${isManager ? 'text-blue-200' : 'text-wave-500'}`}>Solde de la caisse</p>
-                      <p className={`font-display text-3xl font-extrabold ${isManager ? 'text-white' : 'text-wave-900'}`}>{formatMoney(g.caisse?.solde || 0, g.devise)}</p>
-                    </div>
+
 
                     <div className="relative z-10 flex items-center justify-between border-t border-white/10 pt-3">
                       <span className={`text-sm font-bold flex items-center gap-1 ${isManager ? 'text-white' : 'text-wave-600'}`}>
